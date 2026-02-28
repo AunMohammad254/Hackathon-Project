@@ -50,6 +50,7 @@ type PatientFormValues = z.infer<typeof patientSchema>;
 export default function ReceptionistDashboard() {
     const { user, logout } = useAuth();
     const [patients, setPatients] = useState<any[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     // Initialize form
@@ -213,7 +214,7 @@ export default function ReceptionistDashboard() {
                         <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
                             <div className="relative w-72">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                                <Input placeholder="Search patients..." className="pl-9 bg-white" />
+                                <Input placeholder="Search patients..." className="pl-9 bg-white" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                             </div>
                             <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
                                 Total Patients: {patients.length}
@@ -231,8 +232,14 @@ export default function ReceptionistDashboard() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {patients.length > 0 ? (
-                                    patients.map((patient) => (
+                                {patients.filter(p =>
+                                    p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                    p.contact?.toLowerCase().includes(searchQuery.toLowerCase())
+                                ).length > 0 ? (
+                                    patients.filter(p =>
+                                        p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        p.contact?.toLowerCase().includes(searchQuery.toLowerCase())
+                                    ).map((patient) => (
                                         <TableRow key={patient._id} className="hover:bg-slate-50">
                                             <TableCell className="font-medium">{patient.name}</TableCell>
                                             <TableCell>{patient.age} • {patient.gender}</TableCell>

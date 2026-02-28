@@ -5,6 +5,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import { Activity, Users, CalendarCheck, FileText, CheckCircle, Clock, Stethoscope, FileOutput, Loader2 } from "lucide-react";
+import LabReportAnalyzer from "@/components/doctor/LabReportAnalyzer";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -241,8 +242,8 @@ export default function DoctorDashboard() {
                                             </TableCell>
                                             <TableCell>
                                                 <span className={`px-3 py-1.5 text-xs font-semibold rounded-full ${apt.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                                        apt.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-amber-100 text-amber-700'
+                                                    apt.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-amber-100 text-amber-700'
                                                     }`}>
                                                     {apt.status.toUpperCase()}
                                                 </span>
@@ -271,6 +272,8 @@ export default function DoctorDashboard() {
                             </TableBody>
                         </Table>
                     </div>
+
+                    <LabReportAnalyzer />
                 </main>
             </div>
 
@@ -333,8 +336,8 @@ export default function DoctorDashboard() {
                                         <div className="flex justify-between items-start mb-2">
                                             <h4 className="font-semibold text-slate-800">Diagnostic Notes:</h4>
                                             <span className={`px-2 py-1 text-xs font-bold rounded ${riskLevel === 'High' ? 'bg-rose-100 text-rose-700' :
-                                                    riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                                                        'bg-emerald-100 text-emerald-700'
+                                                riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                                                    'bg-emerald-100 text-emerald-700'
                                                 }`}>
                                                 {riskLevel} Risk
                                             </span>

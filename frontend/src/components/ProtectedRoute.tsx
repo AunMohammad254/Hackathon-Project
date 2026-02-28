@@ -18,8 +18,17 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     useEffect(() => {
         // Wait for client-side hydration to check localStorage/user
         const checkAuth = () => {
-            const storedUser = localStorage.getItem("userInfo");
-            const currentUser = user || (storedUser ? JSON.parse(storedUser) : null);
+            let currentUser = user;
+            if (!currentUser) {
+                try {
+                    const storedUser = localStorage.getItem("userInfo");
+                    if (storedUser) {
+                        currentUser = JSON.parse(storedUser);
+                    }
+                } catch {
+                    localStorage.removeItem("userInfo");
+                }
+            }
 
             if (!currentUser) {
                 // Not logged in

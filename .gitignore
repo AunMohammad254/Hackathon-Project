@@ -1,2 +1,40 @@
+# Dependencies
+node_modules/
+
+# Environment
 .env
-node_modules
+.env.*
+!.env.example
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# Compiled JS from TypeScript (should not be in src/)
+*.js.map
+*.d.ts.map
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.d.ts.map
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+ts_errors.txt
+tsc-errors.txt
+tsc-output.txt
+build-output.txt
+tsconfig.tsbuildinfo

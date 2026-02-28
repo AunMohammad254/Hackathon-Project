@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/services/api";
 import Link from "next/link";
 import { Activity, ArrowLeft, Loader2, Mail, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,19 +19,8 @@ export default function Login() {
         setError("");
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                login(data);
-            } else {
-                setError(data.message || "Login failed");
-            }
+            const res = await api.post("/auth/login", { email, password });
+            login(res.data);
         } catch (err) {
             setError("Unable to connect to server. Please try again.");
         } finally {

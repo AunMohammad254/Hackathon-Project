@@ -24,24 +24,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const router = useRouter();
 
     useEffect(() => {
-        // Load user from localStorage on initial render
-        const storedUser = localStorage.getItem("userInfo");
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+        // UX-04: Safe JSON.parse to handle corrupted localStorage
+        try {
+            const storedUser = localStorage.getItem("userInfo");
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
+            }
+        } catch {
+            localStorage.removeItem("userInfo");
         }
     }, []);
 
     const login = (userData: User) => {
         setUser(userData);
         localStorage.setItem("userInfo", JSON.stringify(userData));
-        // Redirect based on role
         router.push(`/${userData.role.toLowerCase()}/dashboard`);
     };
 
     const logout = () => {
         setUser(null);
         localStorage.removeItem("userInfo");
-        router.push("/login"); // Redirect to login page
+        router.push("/login");
     };
 
     return (

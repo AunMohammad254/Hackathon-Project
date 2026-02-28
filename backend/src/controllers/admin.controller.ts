@@ -1,28 +1,41 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { z } from 'zod';
 import Patient from '../models/Patient';
 import Appointment from '../models/Appointment';
 import Prescription from '../models/Prescription';
 import User from '../models/User';
+import { AuthRequest } from '../middleware/authMiddleware';
 
 // @desc    Get dashboard stats
 // @route   GET /api/admin/stats
 // @access  Private (Admin)
-export const getDashboardStats = async (req: Request, res: Response) => {
+export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     try {
-        const totalPatients = await Patient.countDocuments();
-        const totalAppointments = await Appointment.countDocuments();
-        const totalPrescriptions = await Prescription.countDocuments();
-        const totalDoctors = await User.countDocuments({ role: 'Doctor' });
-
-        const pendingAppointments = await Appointment.countDocuments({ status: 'pending' });
-        const confirmedAppointments = await Appointment.countDocuments({ status: 'confirmed' });
-        const completedAppointments = await Appointment.countDocuments({ status: 'completed' });
-
-        const recentAppointments = await Appointment.find()
-            .populate('patientId', 'name contact')
-            .populate('doctorId', 'name')
-            .sort({ createdAt: -1 })
-            .limit(5);
+        // PERF-01: Parallelize all DB queries
+        const [
+            totalPatients,
+            totalAppointments,
+            totalPrescriptions,
+            totalDoctors,
+            pendingAppointments,
+            confirmedAppointments,
+            completedAppointments,
+            recentAppointments,
+        ] = await Promise.all([
+            Patient.countDocuments(),
+            Appointment.countDocuments(),
+            Prescription.countDocuments(),
+            User.countDocuments({ role: 'Doctor' }),
+            Appointment.countDocuments({ status: 'pending' }),
+            Appointment.countDocuments({ status: 'confirmed' }),
+            Appointment.countDocuments({ status: 'completed' }),
+            Appointment.find()
+                .populate('patientId', 'name contact')
+                .populate('doctorId', 'name')
+                .sort({ createdAt: -1 })
+                .limit(5)
+                .lean(),
+        ]);
 
         res.status(200).json({
             success: true,
@@ -34,40 +47,46 @@ export const getDashboardStats = async (req: Request, res: Response) => {
                 breakdown: {
                     pending: pendingAppointments,
                     confirmed: confirmedAppointments,
-                    completed: completedAppointments
-                }
+                    completed: completedAppointments,
+                },
             },
-            recentActivity: recentAppointments
+            recentActivity: recentAppointments,
         });
-
-    } catch (error: any) {
-        console.error('Admin Stats Error:', error);
-        res.status(500).json({ message: 'Server error retrieving stats', error: error.message });
+    } catch (error) {
+        console.error('[Admin Stats Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 
 // @desc    Get all users (staff management)
 // @route   GET /api/admin/users
 // @access  Private (Admin)
-export const getAllUsers = async (req: Request, res: Response) => {
+export const getAllUsers = async (req: AuthRequest, res: Response) => {
     try {
-        const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+        const users = await User.find({}).select('-password').sort({ createdAt: -1 }).lean();
         res.json({ success: true, users });
-    } catch (error: any) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+    } catch (error) {
+        console.error('[Get Users Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
+
+const updateRoleSchema = z.object({
+    role: z.enum(['Admin', 'Doctor', 'Receptionist', 'Patient']),
+});
 
 // @desc    Update user role
 // @route   PUT /api/admin/users/:id/role
 // @access  Private (Admin)
-export const updateUserRole = async (req: Request, res: Response) => {
-    const { role } = req.body;
-    const validRoles = ['Admin', 'Doctor', 'Receptionist', 'Patient'];
-
-    if (!role || !validRoles.includes(role)) {
-        return res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+export const updateUserRole = async (req: AuthRequest, res: Response) => {
+    const parsed = updateRoleSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Invalid role. Must be one of: Admin, Doctor, Receptionist, Patient',
+        });
     }
+
+    const { role } = parsed.data;
 
     try {
         const user = await User.findById(req.params.id);
@@ -78,16 +97,21 @@ export const updateUserRole = async (req: Request, res: Response) => {
         user.role = role;
         await user.save();
 
-        res.json({ success: true, message: `Role updated to ${role}`, user: { _id: user._id, name: user.name, email: user.email, role: user.role } });
-    } catch (error: any) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        res.json({
+            success: true,
+            message: `Role updated to ${role}`,
+            user: { _id: user._id, name: user.name, email: user.email, role: user.role },
+        });
+    } catch (error) {
+        console.error('[Update Role Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 
 // @desc    Delete a user
 // @route   DELETE /api/admin/users/:id
 // @access  Private (Admin)
-export const deleteUser = async (req: any, res: Response) => {
+export const deleteUser = async (req: AuthRequest, res: Response) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
@@ -95,13 +119,24 @@ export const deleteUser = async (req: any, res: Response) => {
         }
 
         // Prevent admin from deleting themselves
-        if (user._id.toString() === req.user._id.toString()) {
+        if (user._id.toString() === req.user!._id.toString()) {
             return res.status(400).json({ message: 'Cannot delete your own account' });
         }
 
-        await user.deleteOne();
-        res.json({ success: true, message: 'User deleted successfully' });
-    } catch (error: any) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        // BUG-03: Cascade cleanup — remove related data
+        await Promise.all([
+            Appointment.deleteMany({
+                $or: [{ doctorId: user._id }, { patientId: user._id }],
+            }),
+            Prescription.deleteMany({
+                $or: [{ doctorId: user._id }, { patientId: user._id }],
+            }),
+            user.deleteOne(),
+        ]);
+
+        res.json({ success: true, message: 'User and related data deleted successfully' });
+    } catch (error) {
+        console.error('[Delete User Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
     }
 };

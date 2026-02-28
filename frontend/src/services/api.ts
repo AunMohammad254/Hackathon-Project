@@ -11,14 +11,18 @@ const api = axios.create({
 // Request interceptor to attach token
 api.interceptors.request.use(
     (config) => {
-        // Only works in the browser
         if (typeof window !== 'undefined') {
-            const storedUser = localStorage.getItem('userInfo');
-            if (storedUser) {
-                const { token } = JSON.parse(storedUser);
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
+            try {
+                const storedUser = localStorage.getItem('userInfo');
+                if (storedUser) {
+                    const { token } = JSON.parse(storedUser);
+                    if (token) {
+                        config.headers.Authorization = `Bearer ${token}`;
+                    }
                 }
+            } catch {
+                // UX-04: Safe JSON.parse — corrupted storage won't crash the app
+                localStorage.removeItem('userInfo');
             }
         }
         return config;
@@ -37,23 +41,19 @@ api.interceptors.response.use(
         let errorMessage = 'An unexpected error occurred';
 
         if (error.response) {
-            // Backend validation or known error
             errorMessage = error.response.data.message || error.response.data.error || 'Server Error';
 
-            // Specifically inform about unauthorized attempts
+            // BUG-08: Handle token expiration — auto-logout on 401
             if (error.response.status === 401) {
-                // Handle token expiration/unauthorized - maybe call logout logic or clear storage
                 if (typeof window !== 'undefined') {
-                    // localStorage.removeItem('userInfo');
-                    // window.location.href = '/login'; 
+                    localStorage.removeItem('userInfo');
+                    window.location.href = '/login';
                 }
             }
         } else if (error.request) {
-            // Network error (backend down)
             errorMessage = 'Unable to connect to the server. Please check your connection.';
         }
 
-        // Show toast for error
         if (typeof window !== 'undefined') {
             toast.error(errorMessage);
         }

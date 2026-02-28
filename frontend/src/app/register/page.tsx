@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import api from "@/services/api";
 import Link from "next/link";
 import { Activity, ArrowLeft, Loader2, Mail, Lock, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const ROLES = ["Patient", "Doctor", "Receptionist", "Admin"] as const;
+const ROLES = ["Patient", "Doctor", "Receptionist"] as const;
 
 export default function Register() {
     const [name, setName] = useState("");
@@ -22,19 +23,8 @@ export default function Register() {
         setError("");
         setLoading(true);
         try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, password, role }),
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-                login(data);
-            } else {
-                setError(data.message || "Registration failed");
-            }
+            const res = await api.post("/auth/register", { name, email, password });
+            login(res.data);
         } catch (err) {
             setError("Unable to connect to server. Please try again.");
         } finally {

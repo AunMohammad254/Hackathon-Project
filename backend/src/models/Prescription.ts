@@ -25,5 +25,8 @@ const prescriptionSchema = new mongoose.Schema({
     pdfUrl: { type: String },
 }, { timestamps: true });
 
+// PERF-04: Index for prescription lookups by patient
+prescriptionSchema.index({ patientId: 1, createdAt: -1 });
+
 const Prescription = mongoose.model('Prescription', prescriptionSchema);
 export default Prescription;
