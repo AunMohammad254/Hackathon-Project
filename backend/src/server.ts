@@ -12,8 +12,8 @@ import aiRoutes from './routes/ai.route';
 import prescriptionRoutes from './routes/prescription.route';
 import adminRoutes from './routes/admin.route';
 
-// Load env before anything else
-dotenv.config({ path: path.resolve(__dirname, '../.env'), override: true });
+// Load env before anything else (supports both src & dist builds)
+dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: true });
 
 // Validate critical env vars on startup
 if (!process.env.JWT_SECRET) {

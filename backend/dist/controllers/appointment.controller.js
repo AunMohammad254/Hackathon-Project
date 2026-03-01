@@ -4,12 +4,29 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateAppointmentStatus = exports.getPatientAppointments = exports.getAppointments = exports.createAppointment = void 0;
+const zod_1 = require("zod");
 const Appointment_1 = __importDefault(require("../models/Appointment"));
+const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
+const createAppointmentSchema = zod_1.z.object({
+    patientId: zod_1.z.string().min(1, 'Patient ID is required'),
+    doctorId: zod_1.z.string().min(1, 'Doctor ID is required'),
+    date: zod_1.z.string().min(1, 'Date is required'),
+});
+const updateStatusSchema = zod_1.z.object({
+    status: zod_1.z.enum(VALID_STATUSES),
+});
 // @desc    Create a new appointment
 // @route   POST /api/appointments
 // @access  Private (Admin, Receptionist, Patient)
 const createAppointment = async (req, res) => {
-    const { patientId, doctorId, date } = req.body;
+    const parsed = createAppointmentSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+    const { patientId, doctorId, date } = parsed.data;
     try {
         const appointment = new Appointment_1.default({
             patientId,
@@ -21,7 +38,8 @@ const createAppointment = async (req, res) => {
         res.status(201).json(createdAppointment);
     }
     catch (error) {
-        res.status(400).json({ message: 'Invalid appointment data', error: error.message });
+        console.error('[Create Appointment Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.createAppointment = createAppointment;
@@ -36,23 +54,25 @@ const getAppointments = async (req, res) => {
             query = { doctorId: req.user._id };
         }
         else if (req.user.role === 'Patient') {
-            // A Patient user ID might not directly be the patientId in the Appointment schema
-            // since patient models are created separately. But if we link them, we filter here.
-            // Assuming for now Patients can only see appointments where they are the patient.
-            // In our current schema, Patient is a separate model, and users have roles.
-            // We'll need to find the Patient record associated with this User.
-            // For simplicity in this demo, if the user is a patient, we pass patientId as query param or link it.
+            // BUG-05: If a patientId is provided, filter by it;
+            // otherwise return empty (don't expose all appointments)
             if (req.query.patientId) {
                 query = { patientId: req.query.patientId };
             }
+            else {
+                return res.json([]);
+            }
         }
+        // Admin/Receptionist see all
         const appointments = await Appointment_1.default.find(query)
             .populate('patientId', 'name age contact')
-            .populate('doctorId', 'name email');
+            .populate('doctorId', 'name email')
+            .lean();
         res.json(appointments);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Get Appointments Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.getAppointments = getAppointments;
@@ -63,11 +83,13 @@ const getPatientAppointments = async (req, res) => {
     try {
         const appointments = await Appointment_1.default.find({ patientId: req.params.patientId })
             .populate('doctorId', 'name')
-            .sort({ date: -1 }); // Sort by latest first for timeline
+            .sort({ date: -1 })
+            .lean();
         res.json(appointments);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Get Patient Appointments Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.getPatientAppointments = getPatientAppointments;
@@ -75,20 +97,26 @@ exports.getPatientAppointments = getPatientAppointments;
 // @route   PUT /api/appointments/:id/status
 // @access  Private (Admin, Receptionist, Doctor)
 const updateAppointmentStatus = async (req, res) => {
-    const { status } = req.body;
+    // BUG-02: Validate status enum before database call
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`,
+        });
+    }
+    const { status } = parsed.data;
     try {
         const appointment = await Appointment_1.default.findById(req.params.id);
-        if (appointment) {
-            appointment.status = status || appointment.status;
-            const updatedAppointment = await appointment.save();
-            res.json(updatedAppointment);
+        if (!appointment) {
+            return res.status(404).json({ message: 'Appointment not found' });
         }
-        else {
-            res.status(404).json({ message: 'Appointment not found' });
-        }
+        appointment.status = status;
+        const updatedAppointment = await appointment.save();
+        res.json(updatedAppointment);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Update Appointment Status Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.updateAppointmentStatus = updateAppointmentStatus;

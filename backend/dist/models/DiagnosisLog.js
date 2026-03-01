@@ -8,7 +8,6 @@ const diagnosisLogSchema = new mongoose_1.default.Schema({
     patientId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
         ref: 'Patient',
-        required: true,
     },
     doctorId: {
         type: mongoose_1.default.Schema.Types.ObjectId,
@@ -25,7 +24,9 @@ const diagnosisLogSchema = new mongoose_1.default.Schema({
         type: String,
         enum: ['Low', 'Medium', 'High'],
         default: 'Low',
-    }
+    },
+    age: { type: Number },
+    gender: { type: String },
 }, { timestamps: true });
 const DiagnosisLog = mongoose_1.default.model('DiagnosisLog', diagnosisLogSchema);
 exports.default = DiagnosisLog;

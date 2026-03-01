@@ -25,5 +25,8 @@ const appointmentSchema = new mongoose_1.default.Schema({
         default: 'pending',
     },
 }, { timestamps: true });
+// PERF-04: Indexes for common query patterns
+appointmentSchema.index({ doctorId: 1, status: 1 });
+appointmentSchema.index({ patientId: 1 });
 const Appointment = mongoose_1.default.model('Appointment', appointmentSchema);
 exports.default = Appointment;

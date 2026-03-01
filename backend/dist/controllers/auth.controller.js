@@ -5,42 +5,54 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserProfile = exports.loginUser = exports.registerUser = void 0;
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const zod_1 = require("zod");
 const User_1 = __importDefault(require("../models/User"));
 const generateToken_1 = require("../utils/generateToken");
+const registerSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2, 'Name must be at least 2 characters').max(100),
+    email: zod_1.z.string().email('Invalid email format'),
+    password: zod_1.z.string().min(6, 'Password must be at least 6 characters'),
+});
+const loginSchema = zod_1.z.object({
+    email: zod_1.z.string().email('Invalid email format'),
+    password: zod_1.z.string().min(1, 'Password is required'),
+});
 // @desc    Register a new user
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res) => {
-    const { name, email, password, role } = req.body;
+    const parsed = registerSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+    const { name, email, password } = parsed.data;
     try {
-        const userExists = await User_1.default.findOne({ email });
+        const userExists = await User_1.default.findOne({ email }).lean();
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
-        // Hash password
         const salt = await bcryptjs_1.default.genSalt(10);
         const hashedPassword = await bcryptjs_1.default.hash(password, salt);
         const user = await User_1.default.create({
             name,
             email,
             password: hashedPassword,
-            role: role || 'Patient', // Default role if not provided could be Patient
+            role: 'Patient', // SEC-02: Always default to Patient, ignore user-supplied role
         });
-        if (user) {
-            res.status(201).json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                token: (0, generateToken_1.generateToken)(user._id.toString(), user.role),
-            });
-        }
-        else {
-            res.status(400).json({ message: 'Invalid user data' });
-        }
+        res.status(201).json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            token: (0, generateToken_1.generateToken)(user._id.toString(), user.role),
+        });
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Register Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.registerUser = registerUser;
@@ -48,7 +60,14 @@ exports.registerUser = registerUser;
 // @route   POST /api/auth/login
 // @access  Public
 const loginUser = async (req, res) => {
-    const { email, password } = req.body;
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+    const { email, password } = parsed.data;
     try {
         const user = await User_1.default.findOne({ email });
         if (user && (await bcryptjs_1.default.compare(password, user.password))) {
@@ -65,7 +84,8 @@ const loginUser = async (req, res) => {
         }
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Login Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.loginUser = loginUser;
@@ -74,7 +94,7 @@ exports.loginUser = loginUser;
 // @access  Private
 const getUserProfile = async (req, res) => {
     try {
-        const user = await User_1.default.findById(req.user._id).select('-password');
+        const user = await User_1.default.findById(req.user._id).select('-password').lean();
         if (user) {
             res.json(user);
         }
@@ -83,7 +103,8 @@ const getUserProfile = async (req, res) => {
         }
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Profile Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.getUserProfile = getUserProfile;

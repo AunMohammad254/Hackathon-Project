@@ -4,12 +4,32 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deletePatient = exports.updatePatient = exports.getPatientById = exports.getPatients = exports.createPatient = void 0;
+const zod_1 = require("zod");
 const Patient_1 = __importDefault(require("../models/Patient"));
+const createPatientSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2, 'Name must be at least 2 characters').max(100),
+    age: zod_1.z.coerce.number().min(0, 'Age must be 0 or greater').max(150),
+    gender: zod_1.z.enum(['Male', 'Female', 'Other']),
+    contact: zod_1.z.string().min(5, 'Contact must be at least 5 characters'),
+});
+const updatePatientSchema = zod_1.z.object({
+    name: zod_1.z.string().min(2).max(100).optional(),
+    age: zod_1.z.coerce.number().min(0).max(150).optional(),
+    gender: zod_1.z.enum(['Male', 'Female', 'Other']).optional(),
+    contact: zod_1.z.string().min(5).optional(),
+});
 // @desc    Register a new patient
 // @route   POST /api/patients
 // @access  Private (Admin, Receptionist, Doctor)
 const createPatient = async (req, res) => {
-    const { name, age, gender, contact } = req.body;
+    const parsed = createPatientSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+    const { name, age, gender, contact } = parsed.data;
     try {
         const patient = new Patient_1.default({
             name,
@@ -22,7 +42,8 @@ const createPatient = async (req, res) => {
         res.status(201).json(createdPatient);
     }
     catch (error) {
-        res.status(400).json({ message: 'Invalid patient data', error: error.message });
+        console.error('[Create Patient Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.createPatient = createPatient;
@@ -31,11 +52,12 @@ exports.createPatient = createPatient;
 // @access  Private
 const getPatients = async (req, res) => {
     try {
-        const patients = await Patient_1.default.find({}).populate('createdBy', 'name email');
+        const patients = await Patient_1.default.find({}).populate('createdBy', 'name email').lean();
         res.json(patients);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Get Patients Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.getPatients = getPatients;
@@ -44,7 +66,9 @@ exports.getPatients = getPatients;
 // @access  Private
 const getPatientById = async (req, res) => {
     try {
-        const patient = await Patient_1.default.findById(req.params.id).populate('createdBy', 'name email');
+        const patient = await Patient_1.default.findById(req.params.id)
+            .populate('createdBy', 'name email')
+            .lean();
         if (patient) {
             res.json(patient);
         }
@@ -53,7 +77,8 @@ const getPatientById = async (req, res) => {
         }
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Get Patient Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.getPatientById = getPatientById;
@@ -61,23 +86,34 @@ exports.getPatientById = getPatientById;
 // @route   PUT /api/patients/:id
 // @access  Private
 const updatePatient = async (req, res) => {
-    const { name, age, gender, contact } = req.body;
+    const parsed = updatePatientSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+    const { name, age, gender, contact } = parsed.data;
     try {
         const patient = await Patient_1.default.findById(req.params.id);
-        if (patient) {
-            patient.name = name || patient.name;
-            patient.age = age || patient.age;
-            patient.gender = gender || patient.gender;
-            patient.contact = contact || patient.contact;
-            const updatedPatient = await patient.save();
-            res.json(updatedPatient);
+        if (!patient) {
+            return res.status(404).json({ message: 'Patient not found' });
         }
-        else {
-            res.status(404).json({ message: 'Patient not found' });
-        }
+        // BUG-06: Use nullish coalescing to handle falsy values (e.g., age=0)
+        if (name !== undefined)
+            patient.name = name;
+        if (age !== undefined)
+            patient.age = age;
+        if (gender !== undefined)
+            patient.gender = gender;
+        if (contact !== undefined)
+            patient.contact = contact;
+        const updatedPatient = await patient.save();
+        res.json(updatedPatient);
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Update Patient Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.updatePatient = updatePatient;
@@ -87,16 +123,15 @@ exports.updatePatient = updatePatient;
 const deletePatient = async (req, res) => {
     try {
         const patient = await Patient_1.default.findById(req.params.id);
-        if (patient) {
-            await patient.deleteOne();
-            res.json({ message: 'Patient removed' });
+        if (!patient) {
+            return res.status(404).json({ message: 'Patient not found' });
         }
-        else {
-            res.status(404).json({ message: 'Patient not found' });
-        }
+        await patient.deleteOne();
+        res.json({ message: 'Patient removed' });
     }
     catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        console.error('[Delete Patient Error]', error.message);
+        res.status(500).json({ message: 'Server error' });
     }
 };
 exports.deletePatient = deletePatient;
