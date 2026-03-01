@@ -25,8 +25,17 @@ const app = express();
 
 // Security Middleware
 app.use(helmet());
+const allowedOrigins = [
+    'http://localhost:3000',
+    'https://hackathon-project-orcin-eight.vercel.app',
+];
+
+if (process.env.CORS_ORIGIN) {
+    allowedOrigins.push(process.env.CORS_ORIGIN);
+}
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
 }));
 app.use(express.json({ limit: '10kb' }));
