@@ -4,15 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
-    Activity, Clock, CalendarCheck, FileText, LogOut, HeartPulse
+    Activity, Clock, CalendarCheck, FileText, LogOut, HeartPulse, User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import HealthChatbot from "@/components/patient/HealthChatbot";
 
 const sidebarLinks = [
     { href: "/patient/dashboard", label: "Overview", icon: HeartPulse },
     { href: "/patient/appointments", label: "Appointments", icon: CalendarCheck },
     { href: "/patient/prescriptions", label: "Prescriptions", icon: FileText },
+    { href: "/patient/profile", label: "Profile", icon: User },
 ];
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
@@ -37,8 +39,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                     key={link.href}
                                     href={link.href}
                                     className={`flex items-center gap-3 py-3 px-4 rounded-lg transition duration-200 font-medium ${isActive
-                                            ? "bg-slate-800/50 text-white border border-slate-700/50"
-                                            : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                                        ? "bg-slate-800/50 text-white border border-slate-700/50"
+                                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                                         }`}
                                 >
                                     <link.icon size={18} className={isActive ? "text-teal-400" : ""} />
@@ -67,6 +69,9 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                 <main className="flex-1 overflow-y-auto p-10">
                     {children}
                 </main>
+
+                {/* AI Health Chatbot — floating on all patient pages */}
+                <HealthChatbot />
             </div>
         </ProtectedRoute>
     );

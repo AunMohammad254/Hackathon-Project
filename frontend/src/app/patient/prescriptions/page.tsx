@@ -8,6 +8,7 @@ import {
     ShieldAlert, ShieldCheck, Shield, Pill
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import PrescriptionTranslator from "@/components/patient/PrescriptionTranslator";
 
 interface Medicine {
     name: string;
@@ -205,6 +206,9 @@ export default function PatientPrescriptions() {
                                                 </Button>
                                             </div>
                                         )}
+
+                                        {/* Translation */}
+                                        <PrescriptionTranslator prescriptionId={rx._id} />
                                     </div>
                                 )}
                             </div>

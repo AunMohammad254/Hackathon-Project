@@ -1,13 +1,30 @@
 import express from 'express';
-import { analyzeSymptoms, analyzeLabReport } from '../controllers/ai.controller';
+import { analyzeSymptoms, analyzeLabReport, translatePrescription, checkDrugInteractions, healthChat, predictiveAnalytics, upgradePlan, aiQueueStatus } from '../controllers/ai.controller';
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
+import { requireProPlan } from '../middleware/subscriptionMiddleware';
+import { aiRateLimiter } from '../middleware/rateLimiter';
 import { upload } from '../middleware/uploadMiddleware';
 
 const router = express.Router();
 
-router.post('/diagnose', protect, authorizeRoles('Doctor'), analyzeSymptoms);
-// NEW: Multimodal lab report analysis
-router.post('/analyze-report', protect, authorizeRoles('Doctor'), upload.single('report'), analyzeLabReport);
+// Queue status (for frontend countdown)
+router.get('/queue-status', protect, aiQueueStatus);
+
+// All AI endpoints get rate limiting
+// Doctor endpoints
+router.post('/diagnose', protect, authorizeRoles('Doctor'), aiRateLimiter, analyzeSymptoms);
+router.post('/analyze-report', protect, authorizeRoles('Doctor'), aiRateLimiter, upload.single('report'), analyzeLabReport);
+router.post('/check-interactions', protect, authorizeRoles('Doctor'), aiRateLimiter, checkDrugInteractions);
+
+// Patient endpoints
+router.post('/translate-prescription', protect, authorizeRoles('Patient'), aiRateLimiter, translatePrescription);
+router.post('/chat', protect, authorizeRoles('Patient'), aiRateLimiter, healthChat);
+
+// SaaS-gated endpoints (Pro plan only)
+router.post('/predictive-analytics', protect, authorizeRoles('Admin', 'Doctor'), requireProPlan, aiRateLimiter, predictiveAnalytics);
+
+// Plan management (no rate limit needed)
+router.post('/upgrade-plan', protect, upgradePlan);
 
 export default router;

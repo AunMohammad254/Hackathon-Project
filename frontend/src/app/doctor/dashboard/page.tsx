@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import { Activity, Users, CalendarCheck, FileText, CheckCircle, Clock, Stethoscope, FileOutput, Loader2 } from "lucide-react";
 import LabReportAnalyzer from "@/components/doctor/LabReportAnalyzer";
+import DrugInteractionAlert from "@/components/doctor/DrugInteractionAlert";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,11 +49,15 @@ export default function DoctorDashboard() {
     const [isConsultOpen, setIsConsultOpen] = useState(false);
     const [symptomInput, setSymptomInput] = useState("");
     const [symptoms, setSymptoms] = useState<string[]>([]);
+    const [patientAge, setPatientAge] = useState("");
+    const [patientGender, setPatientGender] = useState("");
+    const [patientHistory, setPatientHistory] = useState("");
 
     // AI State
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [aiInsights, setAiInsights] = useState("");
     const [riskLevel, setRiskLevel] = useState("");
+    const [suggestedTests, setSuggestedTests] = useState<string[]>([]);
 
     // Prescription State
     const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -80,8 +85,12 @@ export default function DoctorDashboard() {
         setActiveAppointment(apt);
         setSymptomInput("");
         setSymptoms([]);
+        setPatientAge(apt.patientId?.age?.toString() || "");
+        setPatientGender("");
+        setPatientHistory("");
         setAiInsights("");
         setRiskLevel("");
+        setSuggestedTests([]);
         setMedicines([]);
         setInstructions("");
         setIsConsultOpen(true);
@@ -117,10 +126,16 @@ export default function DoctorDashboard() {
 
         setIsAnalyzing(true);
         try {
-            const res = await api.post("/ai/diagnose", { symptoms });
+            const res = await api.post("/ai/diagnose", {
+                symptoms,
+                age: patientAge || undefined,
+                gender: patientGender || undefined,
+                history: patientHistory || undefined,
+            });
             if (res.data?.success) {
                 setAiInsights(res.data.data.insights);
                 setRiskLevel(res.data.data.riskLevel);
+                setSuggestedTests(res.data.data.suggestedTests || []);
                 toast.success("AI Analysis Complete");
             }
         } catch (error) {
@@ -323,6 +338,18 @@ export default function DoctorDashboard() {
                                     {symptoms.length === 0 && <span className="text-sm text-slate-400">No symptoms recorded yet...</span>}
                                 </div>
 
+                                {/* Patient Context Fields */}
+                                <div className="grid grid-cols-2 gap-2 mb-3">
+                                    <Input placeholder="Age" type="number" value={patientAge} onChange={(e) => setPatientAge(e.target.value)} className="bg-white" />
+                                    <select value={patientGender} onChange={(e) => setPatientGender(e.target.value)} className="text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-700">
+                                        <option value="">Gender</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                                <Input placeholder="Medical history (e.g., diabetes, hypertension)" value={patientHistory} onChange={(e) => setPatientHistory(e.target.value)} className="bg-white mb-3" />
+
                                 <Button
                                     onClick={analyzeSymptoms}
                                     disabled={symptoms.length === 0 || isAnalyzing}
@@ -343,6 +370,14 @@ export default function DoctorDashboard() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-slate-600 leading-relaxed">{aiInsights}</p>
+                                        {suggestedTests.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-indigo-100">
+                                                <h5 className="text-xs font-semibold text-indigo-600 uppercase mb-1">Suggested Tests</h5>
+                                                <ul className="text-sm text-slate-600 list-disc list-inside">
+                                                    {suggestedTests.map((t, i) => <li key={i}>{t}</li>)}
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -377,6 +412,10 @@ export default function DoctorDashboard() {
                                             </li>
                                         ))}
                                     </ul>
+                                )}
+
+                                {medicines.length >= 2 && (
+                                    <DrugInteractionAlert medicines={medicines} />
                                 )}
 
                                 <div className="mt-4">

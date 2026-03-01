@@ -5,10 +5,11 @@ import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import {
     CalendarCheck, Clock, FileText, HeartPulse,
-    Loader2, TrendingUp
+    Loader2, TrendingUp, ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface Appointment {
     _id: string;
@@ -21,6 +22,7 @@ export default function PatientDashboard() {
     const { user } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
+    const [plan, setPlan] = useState(user?.subscriptionPlan || "Free");
 
     useEffect(() => {
         const fetchData = async () => {
@@ -41,6 +43,18 @@ export default function PatientDashboard() {
     );
     const completed = appointments.filter((a) => a.status === "completed");
 
+    const togglePlan = async () => {
+        try {
+            const res = await api.post("/ai/upgrade-plan");
+            if (res.data?.success) {
+                setPlan(res.data.plan);
+                toast.success(res.data.message);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     return (
         <>
             <header className="mb-8">
@@ -59,7 +73,7 @@ export default function PatientDashboard() {
             ) : (
                 <>
                     {/* Quick Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex items-start justify-between">
                             <div>
                                 <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Visits</p>
@@ -96,6 +110,27 @@ export default function PatientDashboard() {
                             </div>
                             <HeartPulse className="absolute -right-4 -bottom-4 text-slate-800 w-28 h-28 opacity-50 z-0" />
                         </div>
+
+                        {/* Your Plan Card */}
+                        <div className={`rounded-xl shadow-sm border p-6 flex flex-col justify-between ${plan === 'Pro' ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0' : 'bg-white border-slate-200'}`}>
+                            <div>
+                                <p className={`text-sm font-semibold uppercase tracking-wider mb-1 ${plan === 'Pro' ? 'text-indigo-200' : 'text-slate-500'}`}>Your Plan</p>
+                                <h3 className={`text-3xl font-bold ${plan === 'Pro' ? 'text-white' : 'text-slate-800'}`}>
+                                    <ShieldCheck size={24} className="inline mr-2" />
+                                    {plan}
+                                </h3>
+                                <p className={`text-sm mt-2 ${plan === 'Pro' ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                    {plan === 'Pro' ? 'All AI features unlocked' : 'Upgrade to unlock AI features'}
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                className={`mt-3 ${plan === 'Pro' ? 'bg-white/20 hover:bg-white/30 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
+                                onClick={togglePlan}
+                            >
+                                {plan === 'Pro' ? 'Downgrade' : 'Upgrade to Pro'}
+                            </Button>
+                        </div>
                     </div>
 
                     {/* Recent Appointments Timeline */}
@@ -115,8 +150,8 @@ export default function PatientDashboard() {
                                 {appointments.slice(0, 5).map((apt) => (
                                     <div key={apt._id} className="relative pl-8">
                                         <span className={`absolute -left-[9px] top-1.5 h-4 w-4 rounded-full bg-white border-4 ring-4 ring-white ${apt.status === "completed" ? "border-emerald-500" :
-                                                apt.status === "confirmed" ? "border-blue-500" :
-                                                    "border-amber-500"
+                                            apt.status === "confirmed" ? "border-blue-500" :
+                                                "border-amber-500"
                                             }`}></span>
 
                                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-5 hover:shadow-md transition duration-200">
@@ -125,8 +160,8 @@ export default function PatientDashboard() {
                                                     Dr. {apt.doctorId?.name || "Unknown"}
                                                 </h3>
                                                 <span className={`px-3 py-1 text-xs font-bold rounded-md ${apt.status === "completed" ? "bg-emerald-100 text-emerald-700" :
-                                                        apt.status === "confirmed" ? "bg-blue-100 text-blue-700" :
-                                                            "bg-amber-100 text-amber-700"
+                                                    apt.status === "confirmed" ? "bg-blue-100 text-blue-700" :
+                                                        "bg-amber-100 text-amber-700"
                                                     }`}>
                                                     {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
                                                 </span>

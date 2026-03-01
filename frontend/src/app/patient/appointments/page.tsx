@@ -6,6 +6,8 @@ import api from "@/services/api";
 import {
     CalendarCheck, Clock, Loader2, CheckCircle, AlertCircle, XCircle
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -32,18 +34,30 @@ export default function PatientAppointments() {
     const [filter, setFilter] = useState("all");
 
     useEffect(() => {
-        const fetchAppointments = async () => {
-            try {
-                const res = await api.get("/appointments");
-                setAppointments(res.data);
-            } catch (error) {
-                console.error("Failed to fetch appointments", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchAppointments();
     }, [user]);
+
+    const fetchAppointments = async () => {
+        try {
+            const res = await api.get("/appointments");
+            setAppointments(res.data);
+        } catch (error) {
+            console.error("Failed to fetch appointments", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const cancelAppointment = async (id: string) => {
+        if (!confirm("Are you sure you want to cancel this appointment?")) return;
+        try {
+            await api.put(`/appointments/${id}/status`, { status: "cancelled" });
+            toast.success("Appointment cancelled");
+            setAppointments(prev => prev.map(a => a._id === id ? { ...a, status: "cancelled" } : a));
+        } catch (error) {
+            console.error("Failed to cancel", error);
+        }
+    };
 
     const filtered = filter === "all"
         ? appointments
@@ -73,8 +87,8 @@ export default function PatientAppointments() {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f
-                                ? "bg-teal-500 text-white shadow-sm"
-                                : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                            ? "bg-teal-500 text-white shadow-sm"
+                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)} ({counts[f as keyof typeof counts]})
@@ -95,7 +109,8 @@ export default function PatientAppointments() {
                                 <TableHead className="font-semibold text-slate-500 uppercase tracking-wider text-xs">Doctor</TableHead>
                                 <TableHead className="font-semibold text-slate-500 uppercase tracking-wider text-xs">Date</TableHead>
                                 <TableHead className="font-semibold text-slate-500 uppercase tracking-wider text-xs">Time</TableHead>
-                                <TableHead className="font-semibold text-slate-500 uppercase tracking-wider text-xs text-right">Status</TableHead>
+                                <TableHead className="font-semibold text-slate-500 uppercase tracking-wider text-xs">Status</TableHead>
+                                <TableHead className="font-semibold text-slate-500 uppercase tracking-wider text-xs text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -122,11 +137,18 @@ export default function PatientAppointments() {
                                                 hour: "2-digit", minute: "2-digit"
                                             })}
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        <TableCell>
                                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-md ${cfg.color}`}>
                                                 <StatusIcon size={12} />
                                                 {apt.status.charAt(0).toUpperCase() + apt.status.slice(1)}
                                             </span>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {(apt.status === "pending" || apt.status === "confirmed") && (
+                                                <Button variant="outline" size="sm" className="text-rose-600 border-rose-200 hover:bg-rose-50" onClick={() => cancelAppointment(apt._id)}>
+                                                    <XCircle size={14} className="mr-1" /> Cancel
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 );

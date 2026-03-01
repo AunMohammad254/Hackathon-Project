@@ -1,16 +1,20 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const frontend = spawn('bun', ['run', 'dev'], {
+// shell: true removed — fixes Node.js DEP0190 deprecation warning.
+// On Windows, we spawn via 'cmd' explicitly to keep cross-platform compatibility.
+const isWindows = process.platform === 'win32';
+const shell = isWindows ? 'cmd' : '/bin/sh';
+const shellFlag = isWindows ? '/c' : '-c';
+
+const frontend = spawn(shell, [shellFlag, 'bun run dev'], {
     cwd: path.join(__dirname, 'frontend'),
     stdio: 'inherit',
-    shell: true
 });
 
-const backend = spawn('bun', ['run', 'dev'], {
+const backend = spawn(shell, [shellFlag, 'bun run dev'], {
     cwd: path.join(__dirname, 'backend'),
     stdio: 'inherit',
-    shell: true
 });
 
 process.on('SIGINT', () => {

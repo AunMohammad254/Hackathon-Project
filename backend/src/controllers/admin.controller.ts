@@ -11,7 +11,11 @@ import { AuthRequest } from '../middleware/authMiddleware';
 // @access  Private (Admin)
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     try {
-        // PERF-01: Parallelize all DB queries
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const DiagnosisLog = (await import('../models/DiagnosisLog')).default;
+
         const [
             totalPatients,
             totalAppointments,
@@ -21,6 +25,8 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             confirmedAppointments,
             completedAppointments,
             recentAppointments,
+            monthlyTrends,
+            topDiagnoses,
         ] = await Promise.all([
             Patient.countDocuments(),
             Appointment.countDocuments(),
@@ -35,7 +41,33 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
                 .sort({ createdAt: -1 })
                 .limit(5)
                 .lean(),
+            // Monthly appointment trends (last 6 months)
+            Appointment.aggregate([
+                { $match: { createdAt: { $gte: sixMonthsAgo } } },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+                        count: { $sum: 1 },
+                    },
+                },
+                { $sort: { _id: 1 } },
+            ]),
+            // Top 5 diagnoses
+            DiagnosisLog.aggregate([
+                { $match: { riskLevel: { $exists: true } } },
+                {
+                    $group: {
+                        _id: '$riskLevel',
+                        count: { $sum: 1 },
+                    },
+                },
+                { $sort: { count: -1 } },
+                { $limit: 5 },
+            ]),
         ]);
+
+        // Simulated revenue: ₹500 per completed appointment
+        const simulatedRevenue = completedAppointments * 500;
 
         res.status(200).json({
             success: true,
@@ -44,12 +76,15 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
                 totalAppointments,
                 totalPrescriptions,
                 totalDoctors,
+                simulatedRevenue,
                 breakdown: {
                     pending: pendingAppointments,
                     confirmed: confirmedAppointments,
                     completed: completedAppointments,
                 },
             },
+            monthlyTrends,
+            topDiagnoses,
             recentActivity: recentAppointments,
         });
     } catch (error) {

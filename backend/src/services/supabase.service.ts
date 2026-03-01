@@ -1,7 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -21,10 +18,6 @@ const getSupabase = () => {
 
 /**
  * Uploads a PDF buffer to the 'prescriptions' bucket in Supabase Storage.
- * 
- * @param {Buffer} fileBuffer - The PDF file in buffer format
- * @param {string} fileName - Unique identifier for the file (e.g., patientId-timestamp.pdf)
- * @returns {Promise<string>} - The public URL of the uploaded generated PDF
  */
 export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string): Promise<string> => {
     try {
@@ -32,7 +25,7 @@ export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string
             .from('prescriptions')
             .upload(fileName, fileBuffer, {
                 contentType: 'application/pdf',
-                upsert: true, // Replace if already exists
+                upsert: true,
             });
 
         if (error) {
@@ -40,7 +33,6 @@ export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string
             throw new Error(`Failed to upload to Supabase: ${error.message}`);
         }
 
-        // Get public URL
         const { data: publicUrlData } = getSupabase().storage
             .from('prescriptions')
             .getPublicUrl(fileName);
