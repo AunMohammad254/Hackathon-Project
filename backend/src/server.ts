@@ -11,6 +11,7 @@ import appointmentRoutes from './routes/appointment.route';
 import aiRoutes from './routes/ai.route';
 import prescriptionRoutes from './routes/prescription.route';
 import adminRoutes from './routes/admin.route';
+import userRoutes from './routes/user.route';
 
 // Load env before anything else (supports both src & dist builds)
 dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: true });
@@ -52,6 +53,7 @@ app.use('/api/auth', authLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/ai', aiRoutes);

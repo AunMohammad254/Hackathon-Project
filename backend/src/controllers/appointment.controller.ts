@@ -6,7 +6,6 @@ import { AuthRequest } from '../middleware/authMiddleware';
 const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'] as const;
 
 const createAppointmentSchema = z.object({
-    patientId: z.string().min(1, 'Patient ID is required'),
     doctorId: z.string().min(1, 'Doctor ID is required'),
     date: z.string().min(1, 'Date is required'),
 });
@@ -27,7 +26,10 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         });
     }
 
-    const { patientId, doctorId, date } = parsed.data;
+    const { doctorId, date } = parsed.data;
+
+    // SEC-03: Derive patientId securely from the authenticated user's token
+    const patientId = req.user!._id;
 
     try {
         const appointment = new Appointment({
