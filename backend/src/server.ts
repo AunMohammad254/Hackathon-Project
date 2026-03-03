@@ -14,7 +14,7 @@ import adminRoutes from './routes/admin.route';
 import userRoutes from './routes/user.route';
 
 // Load env before anything else (supports both src & dist builds)
-dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '../.env'), override: true });
 
 // Validate critical env vars on startup
 if (!process.env.JWT_SECRET) {
