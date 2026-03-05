@@ -43,10 +43,10 @@ interface Doctor {
 
 const formSchema = z.object({
     doctorId: z.string({
-        required_error: "Please select a doctor.",
-    }),
+        message: "Please select a doctor.",
+    }).min(1, "Please select a doctor."),
     date: z.date({
-        required_error: "Please select a date and time.",
+        message: "Please select a date and time.",
     }).refine((date) => date > new Date(), {
         message: "Appointment time must be in the future.",
     }),
