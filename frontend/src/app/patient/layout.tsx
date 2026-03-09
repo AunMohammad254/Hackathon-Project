@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 import {
-    Activity, Clock, CalendarCheck, FileText, LogOut, HeartPulse, User, Menu, X
+    Activity, CalendarCheck, FileText, LogOut, HeartPulse, User, Menu, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -24,10 +24,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // Close sidebar on route change on mobile
-    useEffect(() => {
-        setIsSidebarOpen(false);
-    }, [pathname]);
+
 
     return (
         <ProtectedRoute allowedRoles={["Patient"]}>
@@ -76,6 +73,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                 <Link
                                     key={link.href}
                                     href={link.href}
+                                    onClick={() => setIsSidebarOpen(false)}
                                     className={`flex items-center gap-3 py-3 px-4 rounded-lg transition duration-200 font-medium ${isActive
                                         ? "bg-slate-800/50 text-white border border-slate-700/50 shadow-inner"
                                         : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"

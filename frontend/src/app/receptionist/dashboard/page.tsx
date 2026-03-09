@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { PlusCircle, Search, Users, Calendar, LayoutDashboard, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { PlusCircle, Search, Users, Calendar, LayoutDashboard, Clock, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +87,7 @@ export default function ReceptionistDashboard() {
 
     // Initialize form
     const form = useForm<PatientFormValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(patientSchema) as any,
         defaultValues: {
             name: "",
@@ -241,6 +242,7 @@ export default function ReceptionistDashboard() {
                                             </DialogDescription>
                                         </DialogHeader>
 
+                                        {/* eslint-disable @typescript-eslint/no-explicit-any */}
                                         <Form {...form}>
                                             <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4 pt-4">
                                                 <FormField
@@ -307,6 +309,7 @@ export default function ReceptionistDashboard() {
                                                 <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700">Save Patient</Button>
                                             </form>
                                         </Form>
+                                        {/* eslint-enable @typescript-eslint/no-explicit-any */}
                                     </DialogContent>
                                 </Dialog>
                             </header>

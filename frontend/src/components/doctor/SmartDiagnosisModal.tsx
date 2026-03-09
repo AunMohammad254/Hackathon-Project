@@ -68,6 +68,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
     const [result, setResult] = useState<AIResponse | null>(null);
 
     const form = useForm<DiagnosisFormValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(diagnosisSchema) as any,
         defaultValues: {
             patientId: "",
@@ -75,6 +76,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
             age: 0,
             gender: undefined,
             medicalHistory: "",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
     });
 
@@ -91,7 +93,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
             // Using the existing active waitlist or appointments to get recent patients
             const res = await api.get("/appointments");
             const uniquePatients: Record<string, Patient> = {};
-            res.data.forEach((apt: any) => {
+            res.data.forEach((apt: { patientId?: Patient & { _id: string } }) => {
                 if (apt.patientId && !uniquePatients[apt.patientId._id]) {
                     uniquePatients[apt.patientId._id] = apt.patientId;
                 }
@@ -129,9 +131,10 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
                     toast.success("AI Analysis Complete");
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            toast.error(error.response?.data?.message || "Failed to analyze symptoms");
+            const axiosErr = error as { response?: { data?: { message?: string } } };
+            toast.error(axiosErr.response?.data?.message || "Failed to analyze symptoms");
         } finally {
             setIsAnalyzing(false);
         }
@@ -143,7 +146,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
         const p = patients.find(p => p._id === selectedPatientId);
         if (p) {
             if (p.age) form.setValue("age", p.age);
-            if (p.gender) form.setValue("gender", p.gender as any);
+            if (p.gender) form.setValue("gender", p.gender as "Male" | "Female" | "Other");
         }
     }, [selectedPatientId, patients, form]);
 

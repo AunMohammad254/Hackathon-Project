@@ -47,9 +47,10 @@ export function PrescriptionExplainer({ medicines }: PrescriptionExplainerProps)
             if (res.data.error) {
                 toast.warning("AI encountered an issue, showing safe fallback.");
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            toast.error(error.response?.data?.message || "Failed to fetch AI explanation.");
+            const axiosErr = error as { response?: { data?: { message?: string } } };
+            toast.error(axiosErr.response?.data?.message || "Failed to fetch AI explanation.");
             setOpen(false); // Close modal if completely failed
         } finally {
             setLoading(false);

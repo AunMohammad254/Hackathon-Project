@@ -6,7 +6,7 @@ import api from "@/services/api";
 import { toast } from "sonner";
 import {
     Users, CalendarCheck, FileText, Activity,
-    TrendingUp, ActivitySquare, Loader2, DollarSign, Stethoscope, Star
+    ActivitySquare, Loader2, DollarSign, Stethoscope, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +42,7 @@ interface AppointmentActivity {
 }
 
 export default function AdminDashboard() {
-    const { user, login } = useAuth(); // we'll artificially refresh context if needed, or just let state handle it
+    const { user } = useAuth();
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [recentActivity, setRecentActivity] = useState<AppointmentActivity[]>([]);
     const [monthlyTrends, setMonthlyTrends] = useState<Trend[]>([]);
@@ -87,8 +87,10 @@ export default function AdminDashboard() {
         try {
             await api.put("/admin/subscription", { userId: user._id, plan: newPlan });
             toast.success(`Successfully updated plan to ${newPlan}! Refresh to see changes.`);
-        } catch (err: any) {
-            toast.error(err.response?.data?.message || "Failed to update plan");
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : "Failed to update plan";
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            toast.error(axiosErr.response?.data?.message || message);
         } finally {
             setIsUpgrading(false);
         }
@@ -169,7 +171,7 @@ export default function AdminDashboard() {
                             {pieData.some(d => d.value > 0) ? (
                                 <ResponsiveContainer width="100%" height={260}>
                                     <PieChart>
-                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="value" label={(props: any) => `${props.name || ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
+                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={4} dataKey="value" label={(props: { name?: string; percent?: number }) => `${props.name || ''} ${((props.percent ?? 0) * 100).toFixed(0)}%`}>
                                             {pieData.map((_, i) => (
                                                 <Cell key={i} fill={PIE_COLORS[i]} />
                                             ))}

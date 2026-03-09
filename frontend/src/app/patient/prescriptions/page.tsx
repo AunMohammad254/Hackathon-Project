@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import {
-    FileText, Loader2, Download, AlertTriangle,
+    FileText, Loader2, Download,
     ShieldAlert, ShieldCheck, Shield, Pill
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

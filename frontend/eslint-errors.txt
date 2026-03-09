@@ -1,0 +1,52 @@
+src\app\admin\dashboard\page.tsx:9:5 [WARN] @typescript-eslint/no-unused-vars: 'TrendingUp' is defined but never used.
+src\app\admin\dashboard\page.tsx:45:19 [WARN] @typescript-eslint/no-unused-vars: 'login' is assigned a value but never used.
+src\app\admin\dashboard\page.tsx:90:23 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\admin\dashboard\page.tsx:172:162 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\admin\layout.tsx:7:53 [WARN] @typescript-eslint/no-unused-vars: 'Activity' is defined but never used.
+src\app\admin\staff\page.tsx:8:14 [WARN] @typescript-eslint/no-unused-vars: 'AlertTriangle' is defined but never used.
+src\app\doctor\dashboard\page.tsx:7:52 [WARN] @typescript-eslint/no-unused-vars: 'CheckCircle' is defined but never used.
+src\app\doctor\dashboard\page.tsx:7:65 [WARN] @typescript-eslint/no-unused-vars: 'Clock' is defined but never used.
+src\app\doctor\dashboard\page.tsx:75:48 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\doctor\dashboard\page.tsx:269:81 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\login\page.tsx:24:18 [WARN] @typescript-eslint/no-unused-vars: 'err' is defined but never used.
+src\app\patient\dashboard\page.tsx:307:46 [ERROR] react/no-unescaped-entities: `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`.
+src\app\patient\layout.tsx:9:15 [WARN] @typescript-eslint/no-unused-vars: 'Clock' is defined but never used.
+src\app\patient\layout.tsx:29:9 [ERROR] react-hooks/set-state-in-effect: Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+D:\Projects\Hackathon Project\frontend\src\app\patient\layout.tsx:29:9
+  27 |     // Close sidebar on route change on mobile
+  28 |     useEffect(() => {
+> 29 |         setIsSidebarOpen(false);
+     |         ^^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  30 |     }, [pathname]);
+  31 |
+  32 |     return (
+src\app\patient\prescriptions\page.tsx:7:34 [WARN] @typescript-eslint/no-unused-vars: 'AlertTriangle' is defined but never used.
+src\app\patient\profile\page.tsx:35:8 [WARN] react-hooks/exhaustive-deps: React Hook useEffect has a missing dependency: 'fetchPatientData'. Either include it or remove the dependency array.
+src\app\patient\profile\page.tsx:41:45 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\receptionist\dashboard\page.tsx:11:71 [WARN] @typescript-eslint/no-unused-vars: 'CheckCircle' is defined but never used.
+src\app\receptionist\dashboard\page.tsx:90:49 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\receptionist\dashboard\page.tsx:245:91 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\receptionist\dashboard\page.tsx:247:78 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\receptionist\dashboard\page.tsx:261:82 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\app\register\page.tsx:25:18 [WARN] @typescript-eslint/no-unused-vars: 'err' is defined but never used.
+src\components\doctor\LabReportAnalyzer.tsx:142:33 [WARN] @next/next/no-img-element: Using `<img>` could result in slower LCP and higher bandwidth. Consider using `<Image />` from `next/image` or a custom image loader to automatically optimize images. This may incur additional usage or cost from your provider. See: https://nextjs.org/docs/messages/no-img-element
+src\components\doctor\SmartDiagnosisModal.tsx:71:51 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\doctor\SmartDiagnosisModal.tsx:78:14 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\doctor\SmartDiagnosisModal.tsx:94:36 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\doctor\SmartDiagnosisModal.tsx:132:25 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\doctor\SmartDiagnosisModal.tsx:146:63 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\patient\BookAppointmentModal.tsx:66:18 [ERROR] prefer-const: 'minute' is never reassigned. Use 'const' instead.
+src\components\patient\BookAppointmentModal.tsx:119:25 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\patient\CompleteProfileModal.tsx:29:10 [WARN] @typescript-eslint/no-unused-vars: 'useAuth' is defined but never used.
+src\components\patient\CompleteProfileModal.tsx:49:49 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\patient\CompleteProfileModal.tsx:54:14 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\patient\CompleteProfileModal.tsx:64:25 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\patient\HealthChatbot.tsx:70:23 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.
+src\components\patient\PrescriptionExplainer.tsx:50:25 [ERROR] @typescript-eslint/no-explicit-any: Unexpected any. Specify a different type.

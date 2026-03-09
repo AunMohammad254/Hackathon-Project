@@ -5,7 +5,7 @@ import api from "@/services/api";
 import { toast } from "sonner";
 import {
     Users, Loader2, Trash2, ShieldCheck, Search,
-    UserCog, AlertTriangle
+    UserCog
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

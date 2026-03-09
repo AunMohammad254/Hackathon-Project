@@ -21,7 +21,7 @@ export default function Login() {
         try {
             const res = await api.post("/auth/login", { email, password });
             login(res.data);
-        } catch (err) {
+        } catch {
             setError("Unable to connect to server. Please try again.");
         } finally {
             setLoading(false);
@@ -115,6 +115,7 @@ export default function Login() {
                                         type="email"
                                         autoComplete="email"
                                         required
+                                        suppressHydrationWarning
                                         className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
                                         placeholder="doctor@clinic.com"
                                         value={email}
@@ -133,6 +134,7 @@ export default function Login() {
                                         type="password"
                                         autoComplete="current-password"
                                         required
+                                        suppressHydrationWarning
                                         className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
                                         placeholder="••••••••"
                                         value={password}

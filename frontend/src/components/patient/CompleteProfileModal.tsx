@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/context/AuthContext";
+
 
 const profileSchema = z.object({
     age: z.coerce.number().min(0, "Age must be 0 or greater").max(150),
@@ -46,11 +46,13 @@ export function CompleteProfileModal({ open, onOpenChange, onSuccess }: Complete
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const form = useForm<ProfileFormValues>({
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(profileSchema) as any,
         defaultValues: {
             age: 0,
             gender: undefined, // Let the select be empty initially, or we can cast as any to bypass strict type check for initialization
             contact: "",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any,
     });
 
@@ -61,9 +63,10 @@ export function CompleteProfileModal({ open, onOpenChange, onSuccess }: Complete
             toast.success("Profile completed successfully!");
             onOpenChange(false);
             if (onSuccess) onSuccess();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Profile completion failed:", error);
-            toast.error(error.response?.data?.message || "Failed to complete profile.");
+            const axiosErr = error as { response?: { data?: { message?: string } } };
+            toast.error(axiosErr.response?.data?.message || "Failed to complete profile.");
         } finally {
             setIsSubmitting(false);
         }

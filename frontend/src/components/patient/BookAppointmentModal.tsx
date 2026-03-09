@@ -63,7 +63,7 @@ interface BookAppointmentModalProps {
 const generateTimeSlots = () => {
     const slots = [];
     for (let hour = 9; hour <= 17; hour++) {
-        for (let minute of [0, 30]) {
+        for (const minute of [0, 30]) {
             const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
             slots.push(timeString);
         }
@@ -116,12 +116,13 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
             toast.success("Appointment booked successfully!");
             onOpenChange(false);
             if (onSuccess) onSuccess();
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Booking failed:", error);
-            if (error.response?.status === 404 && error.response?.data?.message === 'Patient profile incomplete') {
+            const axiosErr = error as { response?: { status?: number; data?: { message?: string } } };
+            if (axiosErr.response?.status === 404 && axiosErr.response?.data?.message === 'Patient profile incomplete') {
                 setIsProfileModalOpen(true);
             } else {
-                toast.error(error.response?.data?.message || "Failed to book appointment.");
+                toast.error(axiosErr.response?.data?.message || "Failed to book appointment.");
             }
         } finally {
             setIsSubmitting(false);

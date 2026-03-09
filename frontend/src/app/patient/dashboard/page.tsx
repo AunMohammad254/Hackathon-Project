@@ -304,7 +304,7 @@ export default function PatientDashboard() {
                                 </div>
                                 <h3 className="text-xl font-semibold text-slate-800 mb-2">No appointments yet</h3>
                                 <p className="text-slate-500 mb-6 max-w-md mx-auto">
-                                    You haven't scheduled any visits. Book your first appointment to start managing your health journey with us.
+                                    You haven&apos;t scheduled any visits. Book your first appointment to start managing your health journey with us.
                                 </p>
                                 <Button
                                     onClick={() => setIsBookingOpen(true)}

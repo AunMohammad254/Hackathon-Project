@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import { User, Loader2, Save } from "lucide-react";
@@ -20,25 +20,11 @@ export default function PatientProfile() {
         contact: "",
     });
 
-    useEffect(() => {
-        if (user) {
-            setProfile({
-                name: user.name || "",
-                email: user.email || "",
-                age: "",
-                gender: "",
-                contact: "",
-            });
-            // Try to fetch patient record if linked
-            fetchPatientData();
-        }
-    }, [user]);
-
-    const fetchPatientData = async () => {
+    const fetchPatientData = useCallback(async () => {
         try {
             const res = await api.get("/patients");
             // Find patient matching current user email
-            const match = res.data.find((p: any) => p.name === user?.name);
+            const match = res.data.find((p: { name?: string; age?: number; gender?: string; contact?: string }) => p.name === user?.name);
             if (match) {
                 setProfile(prev => ({
                     ...prev,
@@ -52,7 +38,21 @@ export default function PatientProfile() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user?.name]);
+
+    useEffect(() => {
+        if (user) {
+            setProfile({
+                name: user.name || "",
+                email: user.email || "",
+                age: "",
+                gender: "",
+                contact: "",
+            });
+            // Try to fetch patient record if linked
+            fetchPatientData();
+        }
+    }, [user, fetchPatientData]);
 
     const handleSave = async () => {
         setSaving(true);

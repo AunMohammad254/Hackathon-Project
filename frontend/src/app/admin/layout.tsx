@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
-    LayoutDashboard, ActivitySquare, Users, LogOut, Activity
+    LayoutDashboard, ActivitySquare, Users, LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/ProtectedRoute";

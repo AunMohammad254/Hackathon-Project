@@ -139,6 +139,7 @@ export default function LabReportAnalyzer() {
                             </button>
 
                             {previewUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
                                 <img src={previewUrl} alt="Report Preview" className="w-full h-48 object-cover rounded-lg mb-4 border border-slate-200" />
                             ) : (
                                 <div className="w-full h-48 flex flex-col items-center justify-center bg-white rounded-lg mb-4 border border-slate-200">

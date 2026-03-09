@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Activity, Users, CalendarCheck, FileText, CheckCircle, Clock, Stethoscope, FileOutput, Loader2, BrainCircuit } from "lucide-react";
+import { Activity, Users, CalendarCheck, FileText, Stethoscope, FileOutput, Loader2, BrainCircuit } from "lucide-react";
 import LabReportAnalyzer from "@/components/doctor/LabReportAnalyzer";
 import DrugInteractionAlert from "@/components/doctor/DrugInteractionAlert";
 import { SmartDiagnosisModal } from "@/components/doctor/SmartDiagnosisModal";
@@ -72,7 +72,7 @@ export default function DoctorDashboard() {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSmartDiagnosisOpen, setIsSmartDiagnosisOpen] = useState(false);
-    const [analytics, setAnalytics] = useState<any>(null);
+    const [analytics, setAnalytics] = useState<{ stats?: { dailyAppointments?: number; totalAppointments?: number; totalPrescriptions?: number }; monthlyStats?: { _id: string; count: number }[]; totalCompleted?: number; totalPatients?: number } | null>(null);
 
     const fetchAppointments = async () => {
         try {
@@ -266,7 +266,7 @@ export default function DoctorDashboard() {
                          </h2>
                          {analytics?.monthlyStats && analytics.monthlyStats.length > 0 ? (
                              <ResponsiveContainer width="100%" height={260}>
-                                 <BarChart data={analytics.monthlyStats.map((m: any) => ({ month: m._id, consults: m.count }))}>
+                                 <BarChart data={analytics.monthlyStats.map((m: { _id: string; count: number }) => ({ month: m._id, consults: m.count }))}>
                                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />

@@ -67,9 +67,10 @@ export default function HealthChatbot() {
                     return [...filtered, { role: "ai", content: res.data.reply }];
                 });
             }
-        } catch (err: any) {
-            const status = err?.response?.status;
-            const data = err?.response?.data;
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { status?: number; data?: { retryAfterSeconds?: number } } };
+            const status = axiosErr?.response?.status;
+            const data = axiosErr?.response?.data;
 
             if (status === 429) {
                 const retryAfter = data?.retryAfterSeconds || 30;
