@@ -13,6 +13,7 @@ export interface AuthRequest extends Request {
         name: string;
         email: string;
         role: string;
+        subscriptionPlan?: string;
     };
 }
 
@@ -38,6 +39,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
             name: user.name,
             email: user.email,
             role: user.role,
+            subscriptionPlan: user.subscriptionPlan,
         };
 
         next();

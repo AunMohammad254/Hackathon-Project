@@ -49,9 +49,26 @@ type PatientFormValues = z.infer<typeof patientSchema>;
 
 interface Doctor { _id: string; name: string; email: string; }
 
+interface Patient {
+    _id: string;
+    name: string;
+    age: number;
+    gender: string;
+    contact: string;
+    createdBy?: { _id: string; name: string };
+}
+
+interface Appointment {
+    _id: string;
+    date: string;
+    status: string;
+    patientId: { _id: string; name: string } | null;
+    doctorId: { _id: string; name: string } | null;
+}
+
 export default function ReceptionistDashboard() {
     const { user, logout } = useAuth();
-    const [patients, setPatients] = useState<any[]>([]);
+    const [patients, setPatients] = useState<Patient[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<"patients" | "schedule">("patients");
@@ -66,7 +83,7 @@ export default function ReceptionistDashboard() {
     const [isBooking, setIsBooking] = useState(false);
 
     // Today's schedule
-    const [todayAppointments, setTodayAppointments] = useState<any[]>([]);
+    const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([]);
 
     // Initialize form
     const form = useForm<PatientFormValues>({
@@ -81,7 +98,7 @@ export default function ReceptionistDashboard() {
 
     const fetchPatients = async () => {
         try {
-            const res = await api.get("/patients");
+            const res = await api.get("/patients?limit=100");
             setPatients(res.data);
         } catch (error) {
             console.error("Failed to fetch patients", error);
@@ -100,9 +117,9 @@ export default function ReceptionistDashboard() {
 
     const fetchTodaySchedule = async () => {
         try {
-            const res = await api.get("/appointments");
+            const res = await api.get("/appointments?limit=100");
             const today = new Date().toISOString().split("T")[0];
-            const todayAppts = res.data.filter((a: any) =>
+            const todayAppts = res.data.filter((a: Appointment) =>
                 new Date(a.date).toISOString().split("T")[0] === today
             );
             setTodayAppointments(todayAppts);
@@ -129,7 +146,7 @@ export default function ReceptionistDashboard() {
         }
     };
 
-    const openBooking = (patient: any) => {
+    const openBooking = (patient: Patient) => {
         setBookingPatientId(patient._id);
         setBookingPatientName(patient.name);
         setBookingDoctorId("");

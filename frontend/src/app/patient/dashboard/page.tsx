@@ -40,7 +40,7 @@ export default function PatientDashboard() {
 
     const fetchAppointments = async () => {
         try {
-            const res = await api.get("/appointments");
+            const res = await api.get("/appointments?limit=50");
             setAppointments(res.data);
         } catch (error) {
             console.error("Failed to fetch appointments", error);
@@ -162,15 +162,15 @@ export default function PatientDashboard() {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-1">Latest Vitals</p>
-                                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">120/80 <span className="text-sm font-normal text-slate-500">mmHg</span></h3>
+                                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">--/-- <span className="text-sm font-normal text-slate-500">mmHg</span></h3>
                                 </div>
-                                <div className="p-3 bg-rose-50 text-rose-500 rounded-lg">
+                                <div className="p-3 bg-slate-50 text-slate-400 rounded-lg">
                                     <HeartPulse size={24} />
                                 </div>
                             </div>
                             <div className="flex justify-between items-center border-t border-slate-100 mt-3 pt-3">
-                                <p className="text-slate-500 text-xs">Heart Rate: <span className="font-medium text-slate-700">72 bpm</span></p>
-                                <span className="text-xs bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-medium">Normal</span>
+                                <p className="text-slate-500 text-xs">Heart Rate: <span className="font-medium text-slate-700">-- bpm</span></p>
+                                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">No Data</span>
                             </div>
                         </div>
 

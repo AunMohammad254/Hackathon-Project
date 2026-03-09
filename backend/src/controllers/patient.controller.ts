@@ -95,7 +95,16 @@ export const createPatientProfile = async (req: AuthRequest, res: Response) => {
 // @access  Private
 export const getPatients = async (req: AuthRequest, res: Response) => {
     try {
-        const patients = await Patient.find({}).populate('createdBy', 'name email').lean();
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 0;
+        const skip = (page - 1) * limit;
+
+        let dbQuery = Patient.find({}).populate('createdBy', 'name email');
+        if (limit > 0) {
+            dbQuery = dbQuery.skip(skip).limit(limit) as any;
+        }
+
+        const patients = await dbQuery.lean();
         res.json(patients);
     } catch (error) {
         console.error('[Get Patients Error]', (error as Error).message);

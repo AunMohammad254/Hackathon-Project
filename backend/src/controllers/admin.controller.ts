@@ -98,7 +98,17 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
 // @access  Private (Admin)
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
     try {
-        const users = await User.find({}).select('-password').sort({ createdAt: -1 }).lean();
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 0;
+        const skip = (page - 1) * limit;
+
+        let dbQuery = User.find({}).select('-password').sort({ createdAt: -1 });
+
+        if (limit > 0) {
+            dbQuery = dbQuery.skip(skip).limit(limit) as any;
+        }
+
+        const users = await dbQuery.lean();
         res.json({ success: true, users });
     } catch (error) {
         console.error('[Get Users Error]', (error as Error).message);

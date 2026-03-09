@@ -6,7 +6,7 @@ import { AuthRequest } from './authMiddleware';
  * Free users receive a 403 with an upgrade prompt.
  */
 export const requireProPlan = (req: AuthRequest, res: Response, next: NextFunction) => {
-    const plan = (req.user as any)?.subscriptionPlan || 'Free';
+    const plan = req.user?.subscriptionPlan || 'Free';
 
     if (plan !== 'Pro') {
         return res.status(403).json({

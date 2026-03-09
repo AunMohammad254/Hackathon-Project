@@ -36,7 +36,8 @@ const getGenAI = (): GoogleGenerativeAI => {
 
 // ── Queue Status Endpoint ──
 export const aiQueueStatus = async (_req: AuthRequest, res: Response) => {
-    res.status(200).json({ success: true, ...getQueueStatus() });
+    const status = await getQueueStatus();
+    res.status(200).json({ success: true, ...status });
 };
 
 // ── Symptom Checker (Smart Diagnosis) ──

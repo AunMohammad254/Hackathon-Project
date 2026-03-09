@@ -84,11 +84,20 @@ export const getAppointments = async (req: AuthRequest, res: Response) => {
         }
         // Admin/Receptionist see all
 
-        const appointments = await Appointment.find(query)
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 0; // 0 = no limit (backward compatible)
+        const skip = (page - 1) * limit;
+
+        let dbQuery = Appointment.find(query)
             .populate('patientId', 'name age contact')
             .populate('doctorId', 'name email')
-            .sort({ date: -1 })
-            .lean();
+            .sort({ date: -1 });
+
+        if (limit > 0) {
+            dbQuery = dbQuery.skip(skip).limit(limit) as any;
+        }
+
+        const appointments = await dbQuery.lean();
 
         res.json(appointments);
     } catch (error) {
@@ -119,10 +128,19 @@ export const getPatientAppointments = async (req: AuthRequest, res: Response) =>
         }
         // Admin/Receptionist have full access — no additional check needed
 
-        const appointments = await Appointment.find({ patientId })
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 0;
+        const skip = (page - 1) * limit;
+
+        let dbQuery = Appointment.find({ patientId })
             .populate('doctorId', 'name')
-            .sort({ date: -1 })
-            .lean();
+            .sort({ date: -1 });
+
+        if (limit > 0) {
+            dbQuery = dbQuery.skip(skip).limit(limit) as any;
+        }
+
+        const appointments = await dbQuery.lean();
 
         res.json(appointments);
     } catch (error) {

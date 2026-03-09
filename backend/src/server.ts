@@ -42,8 +42,15 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10kb' }));
 
+const MongoStore = require('rate-limit-mongo');
+
 // Rate limiting on auth routes (prevent brute force)
 const authLimiter = rateLimit({
+    store: new MongoStore({
+        uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
+        expireTimeMs: 15 * 60 * 1000,
+        errorHandler: console.error.bind(console, 'rate-limit-mongo')
+    }),
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 20, // 20 requests per window per IP
     message: { message: 'Too many requests, please try again later.' },

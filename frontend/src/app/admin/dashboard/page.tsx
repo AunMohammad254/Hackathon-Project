@@ -31,12 +31,22 @@ interface DashboardStats {
 
 const PIE_COLORS = ["#f59e0b", "#3b82f6", "#10b981"];
 
+interface Trend { _id: string; count: number; }
+interface DiagnosisRisk { _id: string; count: number; }
+interface AppointmentActivity {
+    _id: string;
+    patientId?: { name: string };
+    doctorId?: { name: string };
+    date: string;
+    status: string;
+}
+
 export default function AdminDashboard() {
     const { user, login } = useAuth(); // we'll artificially refresh context if needed, or just let state handle it
     const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [recentActivity, setRecentActivity] = useState<any[]>([]);
-    const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
-    const [topDiagnoses, setTopDiagnoses] = useState<any[]>([]);
+    const [recentActivity, setRecentActivity] = useState<AppointmentActivity[]>([]);
+    const [monthlyTrends, setMonthlyTrends] = useState<Trend[]>([]);
+    const [topDiagnoses, setTopDiagnoses] = useState<DiagnosisRisk[]>([]);
     const [loading, setLoading] = useState(true);
     const [isUpgrading, setIsUpgrading] = useState(false);
 
@@ -65,7 +75,7 @@ export default function AdminDashboard() {
         { name: "Completed", value: stats.breakdown.completed },
     ] : [];
 
-    const barData = monthlyTrends.map((m: any) => ({
+    const barData = monthlyTrends.map((m: Trend) => ({
         month: m._id,
         appointments: m.count,
     }));
