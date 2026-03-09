@@ -10,6 +10,12 @@ const createPatientSchema = z.object({
     contact: z.string().min(5, 'Contact must be at least 5 characters'),
 });
 
+const createPatientProfileSchema = z.object({
+    age: z.coerce.number().min(0, 'Age must be 0 or greater').max(150),
+    gender: z.enum(['Male', 'Female', 'Other']),
+    contact: z.string().min(5, 'Contact must be at least 5 characters'),
+});
+
 const updatePatientSchema = z.object({
     name: z.string().min(2).max(100).optional(),
     age: z.coerce.number().min(0).max(150).optional(),
@@ -44,6 +50,42 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
         res.status(201).json(createdPatient);
     } catch (error) {
         console.error('[Create Patient Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Create patient profile for logged-in user
+// @route   POST /api/patients/profile
+// @access  Private (Patient)
+export const createPatientProfile = async (req: AuthRequest, res: Response) => {
+    const parsed = createPatientProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+
+    try {
+        const existingPatient = await Patient.findOne({ createdBy: req.user!._id });
+        if (existingPatient) {
+            return res.status(400).json({ message: 'Patient profile already exists' });
+        }
+
+        const { age, gender, contact } = parsed.data;
+
+        const patient = new Patient({
+            name: req.user!.name,
+            age,
+            gender,
+            contact,
+            createdBy: req.user!._id,
+        });
+
+        const createdPatient = await patient.save();
+        res.status(201).json(createdPatient);
+    } catch (error) {
+        console.error('[Create Patient Profile Error]', (error as Error).message);
         res.status(500).json({ message: 'Server error' });
     }
 };

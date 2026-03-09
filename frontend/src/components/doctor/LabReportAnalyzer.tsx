@@ -76,7 +76,7 @@ export default function LabReportAnalyzer() {
         formData.append("report", file);
 
         try {
-            const res = await api.post("http://localhost:5000/api/ai/analyze-report", formData, {
+            const res = await api.post("/ai/analyze-report", formData, {
                 headers: {
                     "Content-Type": "multipart/form-data",
                 },

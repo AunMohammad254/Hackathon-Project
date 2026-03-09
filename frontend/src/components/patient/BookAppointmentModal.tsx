@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { CalendarIcon, Loader2, UserRound, Clock } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CompleteProfileModal } from "@/components/patient/CompleteProfileModal";
 import { Calendar } from "@/components/ui/calendar";
 import {
     Dialog,
@@ -76,6 +77,7 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [loadingDoctors, setLoadingDoctors] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -86,7 +88,8 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
             fetchDoctors();
             form.reset();
         }
-    }, [open, form]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const fetchDoctors = async () => {
         setLoadingDoctors(true);
@@ -115,15 +118,20 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
             if (onSuccess) onSuccess();
         } catch (error: any) {
             console.error("Booking failed:", error);
-            toast.error(error.response?.data?.message || "Failed to book appointment.");
+            if (error.response?.status === 404 && error.response?.data?.message === 'Patient profile incomplete') {
+                setIsProfileModalOpen(true);
+            } else {
+                toast.error(error.response?.data?.message || "Failed to book appointment.");
+            }
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+        <>
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                         <CalendarIcon className="w-6 h-6 text-teal-600" />
@@ -283,5 +291,18 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
                 </Form>
             </DialogContent>
         </Dialog>
+
+        <CompleteProfileModal
+            open={isProfileModalOpen}
+            onOpenChange={setIsProfileModalOpen}
+            onSuccess={() => {
+                // Retry booking automatically once profile is created
+                const values = form.getValues();
+                if (values.doctorId && values.date) {
+                    onSubmit(values);
+                }
+            }}
+        />
+        </>
     );
 }

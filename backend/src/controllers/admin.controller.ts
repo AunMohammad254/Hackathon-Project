@@ -158,20 +158,84 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'Cannot delete your own account' });
         }
 
-        // BUG-03: Cascade cleanup — remove related data
-        await Promise.all([
-            Appointment.deleteMany({
-                $or: [{ doctorId: user._id }, { patientId: user._id }],
-            }),
-            Prescription.deleteMany({
-                $or: [{ doctorId: user._id }, { patientId: user._id }],
-            }),
-            user.deleteOne(),
-        ]);
+        // SEC-07 FIX: Use a transaction for cascade delete to ensure atomicity
+        const mongoose = (await import('mongoose')).default;
+        const session = await mongoose.startSession();
+
+        try {
+            await session.withTransaction(async () => {
+                // Find all Patient records created by this user
+                const patientRecords = await Patient.find({ createdBy: user._id }).select('_id').session(session).lean();
+                const patientIds = patientRecords.map(p => p._id);
+
+                // Delete appointments where user is doctor OR patient
+                await Appointment.deleteMany({
+                    $or: [
+                        { doctorId: user._id },
+                        { patientId: { $in: patientIds } },
+                    ],
+                }, { session });
+
+                // Delete prescriptions where user is doctor OR patient
+                await Prescription.deleteMany({
+                    $or: [
+                        { doctorId: user._id },
+                        { patientId: { $in: patientIds } },
+                    ],
+                }, { session });
+
+                // Delete patient records created by this user
+                await Patient.deleteMany({ createdBy: user._id }, { session });
+
+                // Delete the user
+                await User.findByIdAndDelete(user._id, { session });
+            });
+        } finally {
+            await session.endSession();
+        }
 
         res.json({ success: true, message: 'User and related data deleted successfully' });
     } catch (error) {
         console.error('[Delete User Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+const updateSubscriptionSchema = z.object({
+    userId: z.string().min(1, 'User ID is required'),
+    plan: z.enum(['Free', 'Pro']),
+});
+
+// @desc    Update a user's subscription plan
+// @route   PUT /api/admin/subscription
+// @access  Private (Admin)
+export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) => {
+    const parsed = updateSubscriptionSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({
+            message: 'Invalid input data',
+            errors: parsed.error.flatten().fieldErrors,
+        });
+    }
+
+    try {
+        const { userId, plan } = parsed.data;
+        const user = await User.findById(userId);
+        
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.subscriptionPlan = plan;
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: `User upgraded to ${plan} plan successfully`,
+            user: { _id: user._id, name: user.name, subscriptionPlan: user.subscriptionPlan }
+        });
+    } catch (error) {
+        console.error('[Update Subscription Error]', (error as Error).message);
         res.status(500).json({ message: 'Server error' });
     }
 };

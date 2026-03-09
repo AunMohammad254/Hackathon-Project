@@ -12,6 +12,7 @@ import aiRoutes from './routes/ai.route';
 import prescriptionRoutes from './routes/prescription.route';
 import adminRoutes from './routes/admin.route';
 import userRoutes from './routes/user.route';
+import doctorRoutes from './routes/doctor.route';
 
 // Load env before anything else (supports both src & dist builds)
 dotenv.config({ path: path.resolve(__dirname, '../.env'), override: true });
@@ -58,6 +59,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/doctor', doctorRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Global Error Handler — must be last middleware

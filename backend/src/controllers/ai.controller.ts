@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { queueGeminiRequest, getQueueStatus, getCooldownRemaining } from '../services/geminiQueue';
+import { sanitizePromptInput, sanitizePromptArray } from '../utils/sanitize';
 
 // Helper: detect rate-limit errors from the queue and return 429 with countdown
 const handleAIError = (error: any, res: Response, context: string) => {
@@ -38,65 +39,80 @@ export const aiQueueStatus = async (_req: AuthRequest, res: Response) => {
     res.status(200).json({ success: true, ...getQueueStatus() });
 };
 
-// ── Symptom Analysis ──
-export const analyzeSymptoms = async (req: AuthRequest, res: Response) => {
+// ── Symptom Checker (Smart Diagnosis) ──
+export const symptomChecker = async (req: AuthRequest, res: Response) => {
     try {
-        const { symptoms, age, gender, history } = req.body;
+        if ((req.user as any).subscriptionPlan === 'Free') {
+            return res.status(403).json({ message: 'Upgrade to Pro to unlock AI features.' });
+        }
+
+        const { patientId, symptoms, age, gender, medicalHistory } = req.body;
 
         if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
             return res.status(400).json({ message: 'A valid array of symptoms is required' });
         }
 
+        const safeSymptoms = sanitizePromptArray(symptoms);
+        const safeAge = age ? sanitizePromptInput(String(age), 10) : '';
+        const safeGender = gender ? sanitizePromptInput(String(gender), 20) : '';
+        const safeHistory = medicalHistory ? sanitizePromptInput(String(medicalHistory), 500) : '';
+
         const patientContext = [
-            `Symptoms: ${symptoms.join(', ')}`,
-            age ? `Age: ${age}` : '',
-            gender ? `Gender: ${gender}` : '',
-            history ? `Medical History: ${history}` : '',
+            `Symptoms: ${safeSymptoms.join(', ')}`,
+            safeAge ? `Age: ${safeAge}` : '',
+            safeGender ? `Gender: ${safeGender}` : '',
+            safeHistory ? `Medical History: ${safeHistory}` : '',
         ].filter(Boolean).join('\n      ');
 
         const prompt = `
-      You are an expert AI medical assistant participating in a specialized diagnosis workflow.
+      You are an expert medical assistant AI.
       A patient has presented with the following information:
       ${patientContext}
       
-      Please provide a highly professional, brief, yet insightful potential diagnosis.
-      Also, provide a 'riskLevel' strictly chosen from: "Low", "Medium", "High".
-      Include suggested tests if relevant.
+      Analyze these symptoms and provide a highly professional diagnosis assessment.
       
-      Format your response strictly as a JSON object, like this:
+      Format your response strictly as a RAW JSON object matching this exact structure:
       {
-        "insights": "Your professional explanation here...",
-        "riskLevel": "Low | Medium | High",
+        "possibleConditions": ["Condition 1", "Condition 2"],
+        "riskLevel": "Low" | "Medium" | "High" | "Critical",
         "suggestedTests": ["Test 1", "Test 2"]
       }
       
-      Ensure your output is ONLY valid JSON.
+      DO NOT include markdown formatting like \`\`\`json. Output ONLY the raw JSON object.
     `;
 
-        const responseText = await queueGeminiRequest(prompt);
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-
         try {
+            const responseText = await queueGeminiRequest(prompt);
+            const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
             const parsedData = JSON.parse(cleanedText);
 
             // Persist to DiagnosisLog
             const DiagnosisLog = (await import('../models/DiagnosisLog')).default;
             await DiagnosisLog.create({
+                patientId: patientId || undefined,
                 symptoms,
-                aiResponse: parsedData.insights,
-                riskLevel: parsedData.riskLevel,
+                aiResponse: parsedData,
+                riskLevel: parsedData.riskLevel === 'Critical' ? 'High' : parsedData.riskLevel, // Mongoose enum fallback
                 doctorId: req.user!._id,
                 age: age || undefined,
                 gender: gender || undefined,
             });
 
-            res.status(200).json({ success: true, data: parsedData });
-        } catch (parseError) {
-            console.error('[AI Parse Error] Failed to parse Gemini JSON output');
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            return res.status(200).json(parsedData);
+        } catch (aiError) {
+            console.error('[AI Symptom Checker Error]', (aiError as Error).message);
+            // Graceful Fallback
+            return res.status(200).json({
+                error: true,
+                message: "AI service temporarily unavailable. Please proceed with manual diagnosis.",
+                possibleConditions: [],
+                riskLevel: "Medium",
+                suggestedTests: []
+            });
         }
     } catch (error) {
-        handleAIError(error, res, 'AI Diagnosis Error');
+        console.error('[Symptom Checker Fatal Error]', (error as Error).message);
+        res.status(500).json({ message: 'Internal server error' });
     }
 };
 
@@ -167,7 +183,7 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
 
         const prompt = `
       You are a professional medical translator.
-      Translate the following prescription information into ${targetLanguage}.
+      Translate the following prescription information into ${sanitizePromptInput(targetLanguage, 50)}.
       
       CRITICAL RULES:
       - Keep ALL medicine/drug names in English exactly as they are
@@ -203,6 +219,63 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
     }
 };
 
+// ── Prescription Explanation ──
+export const explainPrescription = async (req: AuthRequest, res: Response) => {
+    try {
+        if ((req.user as any).subscriptionPlan === 'Free') {
+            return res.status(403).json({ message: 'Upgrade to Pro to unlock AI features.' });
+        }
+
+        const { medicines } = req.body;
+
+        if (!medicines || !Array.isArray(medicines) || medicines.length === 0) {
+            return res.status(400).json({ message: 'An array of medicines is required' });
+        }
+
+        const safeMedicines = sanitizePromptArray(
+            medicines.map((m: any) => typeof m === 'string' ? m : `${m.name} (${m.dosage})`)
+        ).join(', ');
+
+        const prompt = `
+      You are an expert medical AI assistant.
+      A patient has been prescribed the following medicines: ${safeMedicines}
+      
+      Provide a plain-English, easy-to-understand explanation of what these medicines are for.
+      Also provide 2-3 lifestyle tips and 2-3 preventive advice tips.
+      
+      Format your response strictly as a RAW JSON object matching this structure:
+      {
+        "explanation": "...",
+        "lifestyleAdvice": ["...", "..."],
+        "preventiveAdvice": ["...", "..."]
+      }
+      
+      DO NOT include markdown formatting like \`\`\`json. Output ONLY the raw JSON object.
+    `;
+
+        try {
+            const responseText = await queueGeminiRequest(prompt);
+            const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsedData = JSON.parse(cleanedText);
+
+            return res.status(200).json(parsedData);
+        } catch (aiError) {
+            console.error('[AI Explain Prescription Error]', (aiError as Error).message);
+            // Graceful Fallback
+            return res.status(200).json({
+                error: true,
+                message: "AI service temporarily unavailable. Please consult your doctor for an explanation.",
+                explanation: "Please consult your doctor for an explanation regarding these medications.",
+                lifestyleAdvice: [],
+                preventiveAdvice: []
+            });
+        }
+    } catch (error) {
+        console.error('[Explain Prescription Fatal Error]', (error as Error).message);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};
+
 // ── Drug Interaction Checker ──
 export const checkDrugInteractions = async (req: AuthRequest, res: Response) => {
     try {
@@ -212,7 +285,8 @@ export const checkDrugInteractions = async (req: AuthRequest, res: Response) => 
             return res.status(400).json({ message: 'At least 2 medicines are required to check interactions' });
         }
 
-        const drugNames = medicines.map((m: any) => m.name || m).join(', ');
+        // SEC-09 FIX: Sanitize drug names before embedding in prompt
+        const drugNames = medicines.map((m: any) => sanitizePromptInput(String(m.name || m), 100)).join(', ');
 
         const prompt = `
       You are an expert pharmacologist AI assistant.
@@ -260,6 +334,9 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
             return res.status(400).json({ message: 'A message string is required' });
         }
 
+        // SEC-09 FIX: Sanitize user chat message
+        const safeMessage = sanitizePromptInput(message, 1000);
+
         const patientId = req.user!._id;
 
         const Prescription = (await import('../models/Prescription')).default;
@@ -299,7 +376,7 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
             status: a.status,
         }))) : 'No appointments on record.'}
 
-      The patient's message is: ${message}
+      The patient's message is: ${safeMessage}
     `;
 
         const reply = await queueGeminiRequest(prompt);

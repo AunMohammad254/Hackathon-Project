@@ -1,5 +1,5 @@
 import express from 'express';
-import { analyzeSymptoms, analyzeLabReport, translatePrescription, checkDrugInteractions, healthChat, predictiveAnalytics, upgradePlan, aiQueueStatus } from '../controllers/ai.controller';
+import { symptomChecker, explainPrescription, analyzeLabReport, translatePrescription, checkDrugInteractions, healthChat, predictiveAnalytics, upgradePlan, aiQueueStatus } from '../controllers/ai.controller';
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 import { requireProPlan } from '../middleware/subscriptionMiddleware';
@@ -13,11 +13,12 @@ router.get('/queue-status', protect, aiQueueStatus);
 
 // All AI endpoints get rate limiting
 // Doctor endpoints
-router.post('/diagnose', protect, authorizeRoles('Doctor'), aiRateLimiter, analyzeSymptoms);
+router.post('/symptom-checker', protect, authorizeRoles('Doctor'), aiRateLimiter, symptomChecker);
 router.post('/analyze-report', protect, authorizeRoles('Doctor'), aiRateLimiter, upload.single('report'), analyzeLabReport);
 router.post('/check-interactions', protect, authorizeRoles('Doctor'), aiRateLimiter, checkDrugInteractions);
 
 // Patient endpoints
+router.post('/explain-prescription', protect, authorizeRoles('Patient'), aiRateLimiter, explainPrescription);
 router.post('/translate-prescription', protect, authorizeRoles('Patient'), aiRateLimiter, translatePrescription);
 router.post('/chat', protect, authorizeRoles('Patient'), aiRateLimiter, healthChat);
 

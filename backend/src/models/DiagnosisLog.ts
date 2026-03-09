@@ -25,5 +25,8 @@ const diagnosisLogSchema = new mongoose.Schema({
     gender: { type: String },
 }, { timestamps: true });
 
+// PERF-04: Index for doctor lookups
+diagnosisLogSchema.index({ doctorId: 1 });
+
 const DiagnosisLog = mongoose.model('DiagnosisLog', diagnosisLogSchema);
 export default DiagnosisLog;

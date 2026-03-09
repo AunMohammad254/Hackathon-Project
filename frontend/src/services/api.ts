@@ -12,17 +12,10 @@ const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         if (typeof window !== 'undefined') {
-            try {
-                const storedUser = localStorage.getItem('userInfo');
-                if (storedUser) {
-                    const { token } = JSON.parse(storedUser);
-                    if (token) {
-                        config.headers.Authorization = `Bearer ${token}`;
-                    }
-                }
-            } catch {
-                // UX-04: Safe JSON.parse — corrupted storage won't crash the app
-                localStorage.removeItem('userInfo');
+            // SEC-05 FIX: Read token directly (no JSON parsing needed)
+            const token = localStorage.getItem('clinicToken');
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
             }
         }
         return config;
@@ -43,10 +36,10 @@ api.interceptors.response.use(
         if (error.response) {
             errorMessage = error.response.data.message || error.response.data.error || 'Server Error';
 
-            // BUG-08: Handle token expiration — auto-logout on 401
+            // Handle token expiration — auto-logout on 401
             if (error.response.status === 401) {
                 if (typeof window !== 'undefined') {
-                    localStorage.removeItem('userInfo');
+                    localStorage.removeItem('clinicToken');
                     window.location.href = '/login';
                 }
             }

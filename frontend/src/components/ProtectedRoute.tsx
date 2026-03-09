@@ -16,27 +16,20 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     const [isAuthorized, setIsAuthorized] = useState(false);
 
     useEffect(() => {
-        // Wait for client-side hydration to check localStorage/user
         const checkAuth = () => {
-            let currentUser = user;
-            if (!currentUser) {
-                try {
-                    const storedUser = localStorage.getItem("userInfo");
-                    if (storedUser) {
-                        currentUser = JSON.parse(storedUser);
-                    }
-                } catch {
-                    localStorage.removeItem("userInfo");
-                }
-            }
+            // SEC-05 FIX: Check for token existence (user is hydrated from API by AuthContext)
+            const hasToken = typeof window !== 'undefined' && localStorage.getItem("clinicToken");
 
-            if (!currentUser) {
-                // Not logged in
+            if (!user && !hasToken) {
+                // Not logged in at all
                 router.push("/login");
-            } else if (!allowedRoles.includes(currentUser.role)) {
+            } else if (!user && hasToken) {
+                // Token exists but user not yet hydrated — wait for AuthContext
+                return;
+            } else if (user && !allowedRoles.includes(user.role)) {
                 // Logged in but wrong role
                 router.push("/unauthorized");
-            } else {
+            } else if (user) {
                 // Authorized
                 setIsAuthorized(true);
             }
@@ -46,8 +39,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     }, [user, router, allowedRoles, pathname]);
 
     if (!isAuthorized) {
-        return <div className="flex h-screen items-center justify-center">Loading...</div>; // Or a spinner
+        return <div className="flex h-screen items-center justify-center">Loading...</div>;
     }
 
     return <>{children}</>;
 }
+

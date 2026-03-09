@@ -90,10 +90,9 @@ export default function ReceptionistDashboard() {
 
     const fetchDoctors = async () => {
         try {
-            const res = await api.get("/admin/users");
-            if (res.data?.users) {
-                setDoctors(res.data.users.filter((u: any) => u.role === "Doctor"));
-            }
+            // SEC-08 FIX: Use the proper doctors endpoint (not admin-only)
+            const res = await api.get("/users/doctors");
+            setDoctors(res.data);
         } catch (error) {
             console.error("Failed to fetch doctors", error);
         }

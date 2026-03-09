@@ -3,7 +3,7 @@ import { z } from 'zod';
 import Prescription from '../models/Prescription';
 import Patient from '../models/Patient';
 import { generatePrescriptionPDF } from '../services/pdf.service';
-import { uploadPrescriptionPDF } from '../services/supabase.service';
+import { uploadPrescriptionPDF, getSignedPrescriptionUrl } from '../services/supabase.service';
 import crypto from 'crypto';
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -67,7 +67,12 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
             pdfUrl,
         });
 
-        res.status(201).json(prescription);
+        // 5. Map the filename to a secure signed URL for the immediate frontend response
+        const signedUrl = await getSignedPrescriptionUrl(fileName);
+        const responseData = prescription.toObject();
+        responseData.pdfUrl = signedUrl || fileName;
+
+        res.status(201).json(responseData);
     } catch (error) {
         console.error('[Create Prescription Error]', (error as Error).message);
         res.status(500).json({ message: 'Server error' });
@@ -77,14 +82,73 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
 export const getPatientPrescriptions = async (req: AuthRequest, res: Response) => {
     try {
         const { patientId } = req.params;
+
+        // SEC-03 FIX: Verify the requesting user has access to this patient's prescriptions
+        if (req.user!.role === 'Patient') {
+            const patient = await Patient.findById(patientId).lean();
+            if (!patient || patient.createdBy.toString() !== req.user!._id) {
+                return res.status(403).json({ message: 'Access denied: you can only view your own prescriptions' });
+            }
+        } else if (req.user!.role === 'Doctor') {
+            // Doctors can only see prescriptions they authored for this patient
+            const hasPrescriptions = await Prescription.exists({ patientId, doctorId: req.user!._id });
+            if (!hasPrescriptions) {
+                return res.status(403).json({ message: 'Access denied: no prescriptions authored by you for this patient' });
+            }
+        }
+        // Admin has full access
+
         const prescriptions = await Prescription.find({ patientId })
             .populate('doctorId', 'name')
             .sort({ createdAt: -1 })
             .lean();
 
-        res.status(200).json(prescriptions);
+        const prescriptionsWithUrls = await Promise.all(prescriptions.map(async (p: any) => {
+            if (p.pdfUrl && !p.pdfUrl.startsWith('http')) {
+                p.pdfUrl = await getSignedPrescriptionUrl(p.pdfUrl) || p.pdfUrl;
+            }
+            return p;
+        }));
+
+        res.status(200).json(prescriptionsWithUrls);
     } catch (error) {
         console.error('[Get Prescriptions Error]', (error as Error).message);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+
+// @desc    Get prescriptions for the logged-in patient
+// @route   GET /api/prescriptions/my
+// @access  Private (Patient)
+export const getMyPrescriptions = async (req: AuthRequest, res: Response) => {
+    try {
+        if (req.user!.role !== 'Patient') {
+            return res.status(403).json({ message: 'Only patients can access their own prescriptions' });
+        }
+
+        // Find all patient profiles created by this user
+        const patientProfiles = await Patient.find({ createdBy: req.user!._id }).select('_id').lean();
+        const patientIds = patientProfiles.map(p => p._id);
+
+        if (patientIds.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        const prescriptions = await Prescription.find({ patientId: { $in: patientIds } })
+            .populate('doctorId', 'name')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const prescriptionsWithUrls = await Promise.all(prescriptions.map(async (p: any) => {
+            if (p.pdfUrl && !p.pdfUrl.startsWith('http')) {
+                p.pdfUrl = await getSignedPrescriptionUrl(p.pdfUrl) || p.pdfUrl;
+            }
+            return p;
+        }));
+
+        res.status(200).json(prescriptionsWithUrls);
+    } catch (error) {
+        console.error('[Get My Prescriptions Error]', (error as Error).message);
         res.status(500).json({ message: 'Server error' });
     }
 };

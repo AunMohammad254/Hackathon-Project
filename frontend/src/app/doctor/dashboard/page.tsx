@@ -4,12 +4,16 @@ import { useState, useEffect } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Activity, Users, CalendarCheck, FileText, CheckCircle, Clock, Stethoscope, FileOutput, Loader2 } from "lucide-react";
+import { Activity, Users, CalendarCheck, FileText, CheckCircle, Clock, Stethoscope, FileOutput, Loader2, BrainCircuit } from "lucide-react";
 import LabReportAnalyzer from "@/components/doctor/LabReportAnalyzer";
 import DrugInteractionAlert from "@/components/doctor/DrugInteractionAlert";
+import { SmartDiagnosisModal } from "@/components/doctor/SmartDiagnosisModal";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 import {
     Table,
     TableBody,
@@ -67,11 +71,18 @@ export default function DoctorDashboard() {
     const [instructions, setInstructions] = useState("");
 
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSmartDiagnosisOpen, setIsSmartDiagnosisOpen] = useState(false);
+    const [analytics, setAnalytics] = useState<any>(null);
 
     const fetchAppointments = async () => {
         try {
             const res = await api.get("/appointments");
             setAppointments(res.data);
+            
+            const analyticsRes = await api.get("/doctor/analytics");
+            if (analyticsRes.data?.success) {
+                setAnalytics(analyticsRes.data);
+            }
         } catch (error) {
             console.error("Failed to fetch appointments", error);
         }
@@ -209,29 +220,63 @@ export default function DoctorDashboard() {
                 </aside>
 
                 <main className="flex-1 overflow-y-auto p-10">
-                    <header className="mb-8">
-                        <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Active Waitlist</h1>
-                        <p className="text-slate-500 mt-1">Select confirmed appointments to begin physical or tele-consultation.</p>
+                    <header className="mb-8 flex justify-between items-start">
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Active Waitlist</h1>
+                            <p className="text-slate-500 mt-1">Select confirmed appointments to begin physical or tele-consultation.</p>
+                        </div>
+                        <Button
+                            onClick={() => setIsSmartDiagnosisOpen(true)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 shadow-sm"
+                        >
+                            <BrainCircuit size={18} />
+                            Smart Symptom Checker
+                        </Button>
                     </header>
 
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-slate-500 mb-2">Total Today</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{appointments.length}</h3>
+                            <p className="text-sm font-medium text-slate-500 mb-2">Daily Appointments</p>
+                            <h3 className="text-3xl font-bold text-slate-800">{analytics?.stats?.dailyAppointments || 0}</h3>
+                        </div>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center">
+                            <p className="text-sm font-medium text-slate-500 mb-2">Total Historic</p>
+                            <h3 className="text-3xl font-bold text-slate-800">{analytics?.stats?.totalAppointments || 0}</h3>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-blue-200 bg-blue-50/50 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-blue-600 mb-2">Ready for Consult</p>
+                            <p className="text-sm font-medium text-blue-600 mb-2">Pending Walk-ins</p>
                             <h3 className="text-3xl font-bold text-blue-700">
                                 {appointments.filter(a => a.status === 'confirmed').length}
                             </h3>
                         </div>
                         <div className="bg-white rounded-xl shadow-sm border border-emerald-200 bg-emerald-50/50 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-emerald-600 mb-2">Completed</p>
+                            <p className="text-sm font-medium text-emerald-600 mb-2">Prescriptions Authored</p>
                             <h3 className="text-3xl font-bold text-emerald-700">
-                                {appointments.filter(a => a.status === 'completed').length}
+                                {analytics?.stats?.totalPrescriptions || 0}
                             </h3>
                         </div>
+                    </div>
+
+                    {/* Chart Row */}
+                    <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                         <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                             <Activity className="text-indigo-500" size={20} />
+                             My Monthly Consultations
+                         </h2>
+                         {analytics?.monthlyStats && analytics.monthlyStats.length > 0 ? (
+                             <ResponsiveContainer width="100%" height={260}>
+                                 <BarChart data={analytics.monthlyStats.map((m: any) => ({ month: m._id, consults: m.count }))}>
+                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                                     <Tooltip cursor={{ fill: '#f8fafc' }} />
+                                     <Bar dataKey="consults" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                 </BarChart>
+                             </ResponsiveContainer>
+                         ) : (
+                             <p className="text-center text-slate-400 py-10">Not enough historical data to map trends.</p>
+                         )}
                     </div>
 
                     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -440,6 +485,8 @@ export default function DoctorDashboard() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <SmartDiagnosisModal open={isSmartDiagnosisOpen} onOpenChange={setIsSmartDiagnosisOpen} />
         </ProtectedRoute>
     );
 }

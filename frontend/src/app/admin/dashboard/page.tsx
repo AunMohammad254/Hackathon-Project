@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
+import { toast } from "sonner";
 import {
     Users, CalendarCheck, FileText, Activity,
-    TrendingUp, ActivitySquare, Loader2, DollarSign, Stethoscope
+    TrendingUp, ActivitySquare, Loader2, DollarSign, Stethoscope, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,16 +32,18 @@ interface DashboardStats {
 const PIE_COLORS = ["#f59e0b", "#3b82f6", "#10b981"];
 
 export default function AdminDashboard() {
+    const { user, login } = useAuth(); // we'll artificially refresh context if needed, or just let state handle it
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
     const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
     const [topDiagnoses, setTopDiagnoses] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isUpgrading, setIsUpgrading] = useState(false);
 
     useEffect(() => {
         const fetchAdminData = async () => {
             try {
-                const res = await api.get("/admin/stats");
+                const res = await api.get("/admin/analytics"); // Renamed route to meet prompt spec
                 if (res.data?.success) {
                     setStats(res.data.stats);
                     setRecentActivity(res.data.recentActivity);
@@ -66,11 +70,36 @@ export default function AdminDashboard() {
         appointments: m.count,
     }));
 
+    const handleUpgradePlan = async () => {
+        if (!user) return;
+        setIsUpgrading(true);
+        const newPlan = user.subscriptionPlan === 'Pro' ? 'Free' : 'Pro';
+        try {
+            await api.put("/admin/subscription", { userId: user._id, plan: newPlan });
+            toast.success(`Successfully updated plan to ${newPlan}! Refresh to see changes.`);
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || "Failed to update plan");
+        } finally {
+            setIsUpgrading(false);
+        }
+    };
+
     return (
         <>
-            <header className="mb-10">
-                <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Platform Dashboard</h1>
-                <p className="text-slate-500 mt-2 text-lg">Real-time overview of clinic metrics and operations.</p>
+            <header className="mb-10 flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Platform Dashboard</h1>
+                    <p className="text-slate-500 mt-2 text-lg">Real-time overview of clinic metrics and operations.</p>
+                </div>
+                <Button
+                    onClick={handleUpgradePlan}
+                    disabled={isUpgrading}
+                    variant={user?.subscriptionPlan === 'Pro' ? 'outline' : 'default'}
+                    className={user?.subscriptionPlan === 'Pro' ? 'border-amber-400 text-amber-600' : 'bg-amber-500 hover:bg-amber-600 text-white shadow-md'}
+                >
+                    {isUpgrading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Star className="w-4 h-4 mr-2" />}
+                    {user?.subscriptionPlan === 'Pro' ? 'Downgrade to Free' : 'Upgrade to Pro'}
+                </Button>
             </header>
 
             {loading ? (

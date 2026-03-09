@@ -33,13 +33,36 @@ export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string
             throw new Error(`Failed to upload to Supabase: ${error.message}`);
         }
 
-        const { data: publicUrlData } = getSupabase().storage
-            .from('prescriptions')
-            .getPublicUrl(fileName);
-
-        return publicUrlData.publicUrl;
+        // We return the raw filename. The controller will store this in the DB
+        // and generate fresh signed URLs whenever retrieved.
+        return fileName;
     } catch (error) {
         console.error('Detailed Error uploading PDF to Supabase:', error);
         throw error;
+    }
+};
+
+/**
+ * Dynamically generates a temporary signed URL for a given prescription file.
+ */
+export const getSignedPrescriptionUrl = async (fileName: string): Promise<string | null> => {
+    try {
+        if (!fileName) return null;
+        // If it's already a full HTTP URL (e.g., from old mock data), just return it
+        if (fileName.startsWith('http')) return fileName;
+
+        const { data, error } = await getSupabase().storage
+            .from('prescriptions')
+            .createSignedUrl(fileName, 3600); // 1-hour TTL
+
+        if (error || !data?.signedUrl) {
+            console.error('Supabase Signed URL Error:', error);
+            return null;
+        }
+
+        return data.signedUrl;
+    } catch (error) {
+        console.error('Failed to generate signed url:', error);
+        return null;
     }
 };

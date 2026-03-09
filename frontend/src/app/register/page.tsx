@@ -4,16 +4,13 @@ import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
 import Link from "next/link";
-import { Activity, ArrowLeft, Loader2, Mail, Lock, User, ShieldCheck } from "lucide-react";
+import { Activity, ArrowLeft, Loader2, Mail, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-const ROLES = ["Patient", "Doctor", "Receptionist"] as const;
 
 export default function Register() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState<string>("Patient");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
@@ -166,29 +163,6 @@ export default function Register() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                     />
-                                </div>
-                            </div>
-
-                            {/* Role Selector */}
-                            <div>
-                                <label className="block text-sm font-medium text-slate-300 mb-2">
-                                    <ShieldCheck className="inline mr-1 mb-0.5" size={14} />
-                                    Select Your Role
-                                </label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {ROLES.map((r) => (
-                                        <button
-                                            key={r}
-                                            type="button"
-                                            onClick={() => setRole(r)}
-                                            className={`py-2.5 px-4 rounded-xl text-sm font-medium border transition-all ${role === r
-                                                ? "bg-teal-500/20 border-teal-500/50 text-teal-400"
-                                                : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20 hover:text-slate-300"
-                                                }`}
-                                        >
-                                            {r}
-                                        </button>
-                                    ))}
                                 </div>
                             </div>
                         </div>

@@ -5,11 +5,15 @@ import {
     getPatientById,
     updatePatient,
     deletePatient,
+    createPatientProfile
 } from '../controllers/patient.controller';
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 
 const router = express.Router();
+
+router.route('/profile')
+    .post(protect, authorizeRoles('Patient'), createPatientProfile);
 
 router.route('/')
     .post(protect, authorizeRoles('Admin', 'Receptionist', 'Doctor'), createPatient)

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PrescriptionTranslator from "@/components/patient/PrescriptionTranslator";
+import { PrescriptionExplainer } from "@/components/patient/PrescriptionExplainer";
 
 interface Medicine {
     name: string;
@@ -43,31 +44,8 @@ export default function PatientPrescriptions() {
     useEffect(() => {
         const fetchPrescriptions = async () => {
             try {
-                // We need the patient record ID linked to this user
-                // For this demo, we try to find a patient matching this user
-                // and then fetch prescriptions. If the patient model doesn't directly
-                // link to user ID, we fall back to fetching all and showing a message.
-                const patientsRes = await api.get("/patients");
-                const patients = patientsRes.data;
-
-                // Try to find a patient record that might match this user
-                // (In a production app, the patient.userId would link to the user)
-                if (patients.length > 0) {
-                    // Fetch prescriptions for the first patient associated with user
-                    // In demo mode, we just fetch for any patient the user might be linked to
-                    const allPrescriptions: Prescription[] = [];
-                    for (const patient of patients) {
-                        try {
-                            const res = await api.get(`/prescriptions/patient/${patient._id}`);
-                            allPrescriptions.push(...res.data);
-                        } catch {
-                            // Skip if no prescriptions for this patient
-                        }
-                    }
-                    setPrescriptions(allPrescriptions.sort((a, b) =>
-                        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                    ));
-                }
+                const res = await api.get("/prescriptions/my");
+                setPrescriptions(res.data);
             } catch (error) {
                 console.error("Failed to fetch prescriptions", error);
             } finally {
@@ -209,6 +187,9 @@ export default function PatientPrescriptions() {
 
                                         {/* Translation */}
                                         <PrescriptionTranslator prescriptionId={rx._id} />
+
+                                        {/* AI Explanation */}
+                                        <PrescriptionExplainer medicines={rx.medicines} />
                                     </div>
                                 )}
                             </div>
