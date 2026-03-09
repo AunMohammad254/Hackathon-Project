@@ -1,20 +1,28 @@
 import { Response } from 'express';
 import { z } from 'zod';
+import mongoose from 'mongoose';
 import Patient from '../models/Patient';
 import Appointment from '../models/Appointment';
 import Prescription from '../models/Prescription';
 import User from '../models/User';
+import DiagnosisLog from '../models/DiagnosisLog';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { adminStatsCache, doctorCache } from '../services/cache';
 
 // @desc    Get dashboard stats
 // @route   GET /api/admin/stats
 // @access  Private (Admin)
 export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     try {
+        const cachedStats = adminStatsCache.get('dashboard_stats');
+        if (cachedStats) {
+            return res.status(200).json(cachedStats);
+        }
+
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-        const DiagnosisLog = (await import('../models/DiagnosisLog')).default;
+        // DiagnosisLog imported statically at top
 
         const [
             totalPatients,
@@ -69,7 +77,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
         // Simulated revenue: ₹500 per completed appointment
         const simulatedRevenue = completedAppointments * 500;
 
-        res.status(200).json({
+        const responsePayload = {
             success: true,
             stats: {
                 totalPatients,
@@ -86,10 +94,13 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             monthlyTrends,
             topDiagnoses,
             recentActivity: recentAppointments,
-        });
-    } catch (error) {
+        };
+
+        adminStatsCache.set('dashboard_stats', responsePayload, 2 * 60 * 1000); // 2 min TTL
+        res.status(200).json(responsePayload);
+    } catch (error: unknown) {
         console.error('[Admin Stats Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -105,14 +116,14 @@ export const getAllUsers = async (req: AuthRequest, res: Response) => {
         let dbQuery = User.find({}).select('-password').sort({ createdAt: -1 });
 
         if (limit > 0) {
-            dbQuery = dbQuery.skip(skip).limit(limit) as any;
+            dbQuery = dbQuery.skip(skip).limit(limit);
         }
 
         const users = await dbQuery.lean();
         res.json({ success: true, users });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get Users Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -126,9 +137,7 @@ const updateRoleSchema = z.object({
 export const updateUserRole = async (req: AuthRequest, res: Response) => {
     const parsed = updateRoleSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Invalid role. Must be one of: Admin, Doctor, Receptionist, Patient',
-        });
+        return res.status(400).json({ success: false, message: 'Invalid role. Must be one of: Admin, Doctor, Receptionist, Patient', });
     }
 
     const { role } = parsed.data;
@@ -136,20 +145,26 @@ export const updateUserRole = async (req: AuthRequest, res: Response) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
+        const oldRole = user.role;
         user.role = role;
         await user.save();
+
+        // If user is becoming a doctor or was a doctor, invalidate doctor cache
+        if (oldRole === 'Doctor' || role === 'Doctor') {
+            doctorCache.invalidate('all_doctors');
+        }
 
         res.json({
             success: true,
             message: `Role updated to ${role}`,
             user: { _id: user._id, name: user.name, email: user.email, role: user.role },
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Update Role Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -160,16 +175,16 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
         // Prevent admin from deleting themselves
         if (user._id.toString() === req.user!._id.toString()) {
-            return res.status(400).json({ message: 'Cannot delete your own account' });
+            return res.status(400).json({ success: false, message: 'Cannot delete your own account' });
         }
 
         // SEC-07 FIX: Use a transaction for cascade delete to ensure atomicity
-        const mongoose = (await import('mongoose')).default;
+        // mongoose imported statically at top
         const session = await mongoose.startSession();
 
         try {
@@ -205,9 +220,9 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
         }
 
         res.json({ success: true, message: 'User and related data deleted successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Delete User Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -222,10 +237,8 @@ const updateSubscriptionSchema = z.object({
 export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) => {
     const parsed = updateSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Invalid input data',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Invalid input data',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     try {
@@ -233,7 +246,7 @@ export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) =>
         const user = await User.findById(userId);
         
         if (!user) {
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ success: false, message: 'User not found' });
         }
 
         user.subscriptionPlan = plan;
@@ -244,8 +257,8 @@ export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) =>
             message: `User upgraded to ${plan} plan successfully`,
             user: { _id: user._id, name: user.name, subscriptionPlan: user.subscriptionPlan }
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Update Subscription Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };

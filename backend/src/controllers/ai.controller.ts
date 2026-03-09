@@ -3,9 +3,13 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { queueGeminiRequest, getQueueStatus, getCooldownRemaining } from '../services/geminiQueue';
 import { sanitizePromptInput, sanitizePromptArray } from '../utils/sanitize';
+import DiagnosisLog from '../models/DiagnosisLog';
+import Prescription from '../models/Prescription';
+import Appointment from '../models/Appointment';
+import User from '../models/User';
 
 // Helper: detect rate-limit errors from the queue and return 429 with countdown
-const handleAIError = (error: any, res: Response, context: string) => {
+const handleAIError = (error: unknown, res: Response, context: string) => {
     const msg = (error as Error).message || '';
     console.error(`[${context}]`, msg);
 
@@ -19,7 +23,7 @@ const handleAIError = (error: any, res: Response, context: string) => {
         });
     }
 
-    res.status(500).json({ message: `Failed to process AI request.` });
+    res.status(500).json({ success: false, message: `Failed to process AI request.` });
 };
 
 // BUG-01: Lazy-initialize Gemini client (only used for multimodal/lab report)
@@ -43,14 +47,14 @@ export const aiQueueStatus = async (_req: AuthRequest, res: Response) => {
 // ── Symptom Checker (Smart Diagnosis) ──
 export const symptomChecker = async (req: AuthRequest, res: Response) => {
     try {
-        if ((req.user as any).subscriptionPlan === 'Free') {
-            return res.status(403).json({ message: 'Upgrade to Pro to unlock AI features.' });
+        if (req.user?.subscriptionPlan === 'Free') {
+            return res.status(403).json({ success: false, message: 'Upgrade to Pro to unlock AI features.' });
         }
 
         const { patientId, symptoms, age, gender, medicalHistory } = req.body;
 
         if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
-            return res.status(400).json({ message: 'A valid array of symptoms is required' });
+            return res.status(400).json({ success: false, message: 'A valid array of symptoms is required' });
         }
 
         const safeSymptoms = sanitizePromptArray(symptoms);
@@ -88,7 +92,7 @@ export const symptomChecker = async (req: AuthRequest, res: Response) => {
             const parsedData = JSON.parse(cleanedText);
 
             // Persist to DiagnosisLog
-            const DiagnosisLog = (await import('../models/DiagnosisLog')).default;
+            // DiagnosisLog imported statically at top
             await DiagnosisLog.create({
                 patientId: patientId || undefined,
                 symptoms,
@@ -111,9 +115,9 @@ export const symptomChecker = async (req: AuthRequest, res: Response) => {
                 suggestedTests: []
             });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Symptom Checker Fatal Error]', (error as Error).message);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -121,7 +125,7 @@ export const symptomChecker = async (req: AuthRequest, res: Response) => {
 export const analyzeLabReport = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ message: 'No report file uploaded' });
+            return res.status(400).json({ success: false, message: 'No report file uploaded' });
         }
 
         const client = getGenAI();
@@ -162,9 +166,9 @@ export const analyzeLabReport = async (req: AuthRequest, res: Response) => {
             res.status(200).json({ success: true, data: parsedData });
         } catch (parseError) {
             console.error('[AI Parse Error] Failed to parse Gemini JSON output', cleanedText);
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         handleAIError(error, res, 'AI Report Analysis Error');
     }
 };
@@ -175,12 +179,12 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
         const { prescriptionId, targetLanguage } = req.body;
 
         if (!prescriptionId || !targetLanguage) {
-            return res.status(400).json({ message: 'prescriptionId and targetLanguage are required' });
+            return res.status(400).json({ success: false, message: 'prescriptionId and targetLanguage are required' });
         }
 
-        const Prescription = (await import('../models/Prescription')).default;
+        // Prescription imported statically at top
         const prescription = await Prescription.findById(prescriptionId).lean();
-        if (!prescription) return res.status(404).json({ message: 'Prescription not found' });
+        if (!prescription) return res.status(404).json({ success: false, message: 'Prescription not found' });
 
         const prompt = `
       You are a professional medical translator.
@@ -213,9 +217,9 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
             const parsedData = JSON.parse(cleanedText);
             res.status(200).json({ success: true, data: parsedData, language: targetLanguage });
         } catch {
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         handleAIError(error, res, 'AI Translation Error');
     }
 };
@@ -223,14 +227,14 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
 // ── Prescription Explanation ──
 export const explainPrescription = async (req: AuthRequest, res: Response) => {
     try {
-        if ((req.user as any).subscriptionPlan === 'Free') {
-            return res.status(403).json({ message: 'Upgrade to Pro to unlock AI features.' });
+        if (req.user?.subscriptionPlan === 'Free') {
+            return res.status(403).json({ success: false, message: 'Upgrade to Pro to unlock AI features.' });
         }
 
         const { medicines } = req.body;
 
         if (!medicines || !Array.isArray(medicines) || medicines.length === 0) {
-            return res.status(400).json({ message: 'An array of medicines is required' });
+            return res.status(400).json({ success: false, message: 'An array of medicines is required' });
         }
 
         const safeMedicines = sanitizePromptArray(
@@ -271,9 +275,9 @@ export const explainPrescription = async (req: AuthRequest, res: Response) => {
                 preventiveAdvice: []
             });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Explain Prescription Fatal Error]', (error as Error).message);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
 
@@ -283,7 +287,7 @@ export const checkDrugInteractions = async (req: AuthRequest, res: Response) => 
         const { medicines } = req.body;
 
         if (!medicines || !Array.isArray(medicines) || medicines.length < 2) {
-            return res.status(400).json({ message: 'At least 2 medicines are required to check interactions' });
+            return res.status(400).json({ success: false, message: 'At least 2 medicines are required to check interactions' });
         }
 
         // SEC-09 FIX: Sanitize drug names before embedding in prompt
@@ -319,9 +323,9 @@ export const checkDrugInteractions = async (req: AuthRequest, res: Response) => 
             const parsedData = JSON.parse(cleanedText);
             res.status(200).json({ success: true, data: parsedData });
         } catch {
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         handleAIError(error, res, 'AI Drug Interaction Error');
     }
 };
@@ -332,7 +336,7 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
         const { message } = req.body;
 
         if (!message || typeof message !== 'string') {
-            return res.status(400).json({ message: 'A message string is required' });
+            return res.status(400).json({ success: false, message: 'A message string is required' });
         }
 
         // SEC-09 FIX: Sanitize user chat message
@@ -340,8 +344,7 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
 
         const patientId = req.user!._id;
 
-        const Prescription = (await import('../models/Prescription')).default;
-        const Appointment = (await import('../models/Appointment')).default;
+        // Prescription & Appointment imported statically at top
 
         const [prescriptions, appointments] = await Promise.all([
             Prescription.find({ patientId }).populate('doctorId', 'name').sort({ createdAt: -1 }).limit(10).lean(),
@@ -382,7 +385,7 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
 
         const reply = await queueGeminiRequest(prompt);
         res.status(200).json({ success: true, reply });
-    } catch (error) {
+    } catch (error: unknown) {
         handleAIError(error, res, 'AI Health Chat Error');
     }
 };
@@ -390,8 +393,7 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
 // ── Predictive Analytics ──
 export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
     try {
-        const DiagnosisLog = (await import('../models/DiagnosisLog')).default;
-        const Appointment = (await import('../models/Appointment')).default;
+        // DiagnosisLog & Appointment imported statically at top
 
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -438,7 +440,7 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
                 },
             });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         handleAIError(error, res, 'Predictive Analytics Error');
     }
 };
@@ -446,9 +448,9 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
 // ── Plan Upgrade (SaaS Simulation) ──
 export const upgradePlan = async (req: AuthRequest, res: Response) => {
     try {
-        const User = (await import('../models/User')).default;
+        // User imported statically at top
         const user = await User.findById(req.user!._id);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         user.subscriptionPlan = user.subscriptionPlan === 'Pro' ? 'Free' : 'Pro';
         await user.save();
@@ -458,8 +460,8 @@ export const upgradePlan = async (req: AuthRequest, res: Response) => {
             message: `Plan ${user.subscriptionPlan === 'Pro' ? 'upgraded to Pro' : 'downgraded to Free'}`,
             plan: user.subscriptionPlan,
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Plan Upgrade Error]', (error as Error).message);
-        res.status(500).json({ message: 'Failed to update plan.' });
+        res.status(500).json({ success: false, message: 'Failed to update plan.' });
     }
 };

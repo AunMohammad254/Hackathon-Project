@@ -29,10 +29,8 @@ const updatePatientSchema = z.object({
 export const createPatient = async (req: AuthRequest, res: Response) => {
     const parsed = createPatientSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     const { name, age, gender, contact } = parsed.data;
@@ -48,9 +46,9 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
 
         const createdPatient = await patient.save();
         res.status(201).json(createdPatient);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Create Patient Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -60,16 +58,14 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
 export const createPatientProfile = async (req: AuthRequest, res: Response) => {
     const parsed = createPatientProfileSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     try {
         const existingPatient = await Patient.findOne({ createdBy: req.user!._id });
         if (existingPatient) {
-            return res.status(400).json({ message: 'Patient profile already exists' });
+            return res.status(400).json({ success: false, message: 'Patient profile already exists' });
         }
 
         const { age, gender, contact } = parsed.data;
@@ -84,9 +80,9 @@ export const createPatientProfile = async (req: AuthRequest, res: Response) => {
 
         const createdPatient = await patient.save();
         res.status(201).json(createdPatient);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Create Patient Profile Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -106,9 +102,9 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
 
         const patients = await dbQuery.lean();
         res.json(patients);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get Patients Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -124,11 +120,11 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
         if (patient) {
             res.json(patient);
         } else {
-            res.status(404).json({ message: 'Patient not found' });
+            res.status(404).json({ success: false, message: 'Patient not found' });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get Patient Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -138,10 +134,8 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
 export const updatePatient = async (req: AuthRequest, res: Response) => {
     const parsed = updatePatientSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     const { name, age, gender, contact } = parsed.data;
@@ -150,7 +144,7 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
         const patient = await Patient.findById(req.params.id);
 
         if (!patient) {
-            return res.status(404).json({ message: 'Patient not found' });
+            return res.status(404).json({ success: false, message: 'Patient not found' });
         }
 
         // BUG-06: Use nullish coalescing to handle falsy values (e.g., age=0)
@@ -161,9 +155,9 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
 
         const updatedPatient = await patient.save();
         res.json(updatedPatient);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Update Patient Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -175,13 +169,13 @@ export const deletePatient = async (req: AuthRequest, res: Response) => {
         const patient = await Patient.findById(req.params.id);
 
         if (!patient) {
-            return res.status(404).json({ message: 'Patient not found' });
+            return res.status(404).json({ success: false, message: 'Patient not found' });
         }
 
         await patient.deleteOne();
         res.json({ message: 'Patient removed' });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Delete Patient Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };

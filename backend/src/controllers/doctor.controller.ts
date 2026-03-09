@@ -64,8 +64,8 @@ export const getDoctorAnalytics = async (req: AuthRequest, res: Response) => {
             monthlyStats,
             recentActivity: recentAppointments,
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Doctor Analytics Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };

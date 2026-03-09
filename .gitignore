@@ -40,3 +40,4 @@ build-output.txt
 tsconfig.tsbuildinfo
 AI_Clinic_Management_Smart_Diagnosis_SaaS_Official_Hackathon_Document.md
 TECH_STACK_REPORT.md
+__tests__/

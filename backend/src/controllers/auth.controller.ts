@@ -22,10 +22,8 @@ const loginSchema = z.object({
 export const registerUser = async (req: AuthRequest, res: Response) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     const { name, email, password } = parsed.data;
@@ -34,7 +32,7 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
         const userExists = await User.findOne({ email }).lean();
 
         if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+            return res.status(400).json({ success: false, message: 'User already exists' });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -54,9 +52,9 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
             role: user.role,
             token: generateToken(user._id.toString(), user.role),
         });
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Register Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -66,10 +64,8 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
 export const loginUser = async (req: AuthRequest, res: Response) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     const { email, password } = parsed.data;
@@ -86,11 +82,11 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
                 token: generateToken(user._id.toString(), user.role),
             });
         } else {
-            res.status(401).json({ message: 'Invalid email or password' });
+            res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Login Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -103,10 +99,10 @@ export const getUserProfile = async (req: AuthRequest, res: Response) => {
         if (user) {
             res.json(user);
         } else {
-            res.status(404).json({ message: 'User not found' });
+            res.status(404).json({ success: false, message: 'User not found' });
         }
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Profile Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };

@@ -13,6 +13,8 @@ import prescriptionRoutes from './routes/prescription.route';
 import adminRoutes from './routes/admin.route';
 import userRoutes from './routes/user.route';
 import doctorRoutes from './routes/doctor.route';
+import { requestLogger } from './middleware/requestLogger';
+import { setupSwagger } from './docs/swagger';
 
 // Load env before anything else (supports both src & dist builds)
 dotenv.config({ path: path.resolve(__dirname, '../.env'), override: true });
@@ -24,6 +26,9 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express();
+
+// Request Logger (INFRA-03)
+app.use(requestLogger);
 
 // Security Middleware
 app.use(helmet());
@@ -57,22 +62,41 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-app.use('/api/auth', authLimiter);
+app.use('/api/v1/auth', authLimiter);
+
+// Health Check Endpoint (INFRA-04)
+app.get('/api/v1/health', (req: Request, res: Response) => {
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
+});
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/patients', patientRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/prescriptions', prescriptionRoutes);
-app.use('/api/doctor', doctorRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/patients', patientRoutes);
+app.use('/api/v1/appointments', appointmentRoutes);
+app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/prescriptions', prescriptionRoutes);
+app.use('/api/v1/doctor', doctorRoutes);
+app.use('/api/v1/admin', adminRoutes);
+
+// Setup Swagger UI (INFRA-02)
+setupSwagger(app);
 
 // Global Error Handler — must be last middleware
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-    console.error('[Unhandled Error]', err.message);
-    res.status(500).json({ message: 'Internal server error' });
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    if (err.name === 'MulterError') {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ success: false, message: 'File is too large. Maximum size is 10MB.' });
+        }
+        return res.status(400).json({ success: false, message: err.message });
+    }
+
+    console.error('[Unhandled Error]', err.message || err);
+    res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
 // Database connection & server start
@@ -108,4 +132,8 @@ const startServer = async () => {
     }
 };
 
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
+
+export { app };

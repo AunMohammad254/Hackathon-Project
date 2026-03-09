@@ -22,10 +22,8 @@ const updateStatusSchema = z.object({
 export const createAppointment = async (req: AuthRequest, res: Response) => {
     const parsed = createAppointmentSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     const { doctorId, date, patientId: bodyPatientId } = parsed.data;
@@ -38,7 +36,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             const patient = await Patient.findOne({ createdBy: req.user!._id }).lean();
             if (!patient) {
                 // If the patient profile does not exist yet, return a clean 404
-                return res.status(404).json({ message: 'Patient profile incomplete' });
+                return res.status(404).json({ success: false, message: 'Patient profile incomplete' });
             } else {
                 patientId = patient._id.toString();
             }
@@ -46,7 +44,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             // Admin/Receptionist/Doctor can specify patientId explicitly
             patientId = bodyPatientId;
         } else {
-            return res.status(400).json({ message: 'patientId is required for non-patient users' });
+            return res.status(400).json({ success: false, message: 'patientId is required for non-patient users' });
         }
 
         const appointment = new Appointment({
@@ -58,9 +56,9 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
         const createdAppointment = await appointment.save();
         res.status(201).json(createdAppointment);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Create Appointment Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -100,9 +98,9 @@ export const getAppointments = async (req: AuthRequest, res: Response) => {
         const appointments = await dbQuery.lean();
 
         res.json(appointments);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get Appointments Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -117,13 +115,13 @@ export const getPatientAppointments = async (req: AuthRequest, res: Response) =>
         if (req.user!.role === 'Patient') {
             const patient = await Patient.findById(patientId).lean();
             if (!patient || patient.createdBy.toString() !== req.user!._id) {
-                return res.status(403).json({ message: 'Access denied: you can only view your own appointments' });
+                return res.status(403).json({ success: false, message: 'Access denied: you can only view your own appointments' });
             }
         } else if (req.user!.role === 'Doctor') {
             // Doctors can only see appointments where they are the assigned doctor
             const hasAccess = await Appointment.exists({ patientId, doctorId: req.user!._id });
             if (!hasAccess) {
-                return res.status(403).json({ message: 'Access denied: patient not assigned to you' });
+                return res.status(403).json({ success: false, message: 'Access denied: patient not assigned to you' });
             }
         }
         // Admin/Receptionist have full access — no additional check needed
@@ -143,9 +141,9 @@ export const getPatientAppointments = async (req: AuthRequest, res: Response) =>
         const appointments = await dbQuery.lean();
 
         res.json(appointments);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get Patient Appointments Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -155,9 +153,7 @@ export const getPatientAppointments = async (req: AuthRequest, res: Response) =>
 export const updateAppointmentStatus = async (req: AuthRequest, res: Response) => {
     const parsed = updateStatusSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`,
-        });
+        return res.status(400).json({ success: false, message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}`, });
     }
 
     const { status } = parsed.data;
@@ -166,15 +162,15 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response) =
         const appointment = await Appointment.findById(req.params.id);
 
         if (!appointment) {
-            return res.status(404).json({ message: 'Appointment not found' });
+            return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
 
         appointment.status = status;
         const updatedAppointment = await appointment.save();
         res.json(updatedAppointment);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Update Appointment Status Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 

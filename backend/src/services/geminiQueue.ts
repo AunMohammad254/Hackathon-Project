@@ -68,9 +68,9 @@ const processQueue = async () => {
                     req.resolve(text);
                     activeRequests.delete(job._id.toString());
                 }
-            } catch (error: any) {
-                const message = error?.message || '';
-                const status = error?.status;
+            } catch (error: unknown) {
+                const message = (error instanceof Error) ? error.message : '';
+                const status = (error as Record<string, unknown>)?.status;
 
                 if (status === 429 || message.includes('429') || message.includes('RESOURCE_EXHAUSTED')) {
                     const retryMatch = message.match(/retry\s+in\s+([\d.]+)s/i);
@@ -96,7 +96,7 @@ const processQueue = async () => {
                     }
                 } else {
                     job.status = 'failed';
-                    job.error = error.message || 'Unknown processing error';
+                    job.error = message || 'Unknown processing error';
                     await job.save();
 
                     const req = activeRequests.get(job._id.toString());

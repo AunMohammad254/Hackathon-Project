@@ -24,10 +24,8 @@ const createPrescriptionSchema = z.object({
 export const createPrescription = async (req: AuthRequest, res: Response) => {
     const parsed = createPrescriptionSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
 
     const { patientId, medicines, instructions, aiInsights, riskLevel } = parsed.data;
@@ -37,7 +35,7 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
 
         // 1. Fetch patient for PDF
         const patient = await Patient.findById(patientId).lean();
-        if (!patient) return res.status(404).json({ message: 'Patient not found' });
+        if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
 
         // 2. Generate PDF via internal service
         const pdfData = {
@@ -73,9 +71,9 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
         responseData.pdfUrl = signedUrl || fileName;
 
         res.status(201).json(responseData);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Create Prescription Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -87,13 +85,13 @@ export const getPatientPrescriptions = async (req: AuthRequest, res: Response) =
         if (req.user!.role === 'Patient') {
             const patient = await Patient.findById(patientId).lean();
             if (!patient || patient.createdBy.toString() !== req.user!._id) {
-                return res.status(403).json({ message: 'Access denied: you can only view your own prescriptions' });
+                return res.status(403).json({ success: false, message: 'Access denied: you can only view your own prescriptions' });
             }
         } else if (req.user!.role === 'Doctor') {
             // Doctors can only see prescriptions they authored for this patient
             const hasPrescriptions = await Prescription.exists({ patientId, doctorId: req.user!._id });
             if (!hasPrescriptions) {
-                return res.status(403).json({ message: 'Access denied: no prescriptions authored by you for this patient' });
+                return res.status(403).json({ success: false, message: 'Access denied: no prescriptions authored by you for this patient' });
             }
         }
         // Admin has full access
@@ -111,9 +109,9 @@ export const getPatientPrescriptions = async (req: AuthRequest, res: Response) =
         }));
 
         res.status(200).json(prescriptionsWithUrls);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get Prescriptions Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 
@@ -123,7 +121,7 @@ export const getPatientPrescriptions = async (req: AuthRequest, res: Response) =
 export const getMyPrescriptions = async (req: AuthRequest, res: Response) => {
     try {
         if (req.user!.role !== 'Patient') {
-            return res.status(403).json({ message: 'Only patients can access their own prescriptions' });
+            return res.status(403).json({ success: false, message: 'Only patients can access their own prescriptions' });
         }
 
         // Find all patient profiles created by this user
@@ -147,8 +145,8 @@ export const getMyPrescriptions = async (req: AuthRequest, res: Response) => {
         }));
 
         res.status(200).json(prescriptionsWithUrls);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error('[Get My Prescriptions Error]', (error as Error).message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
