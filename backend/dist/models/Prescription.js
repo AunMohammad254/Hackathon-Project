@@ -30,5 +30,7 @@ const prescriptionSchema = new mongoose_1.default.Schema({
 }, { timestamps: true });
 // PERF-04: Index for prescription lookups by patient
 prescriptionSchema.index({ patientId: 1, createdAt: -1 });
+// PERF-04: Index for doctor lookups
+prescriptionSchema.index({ doctorId: 1 });
 const Prescription = mongoose_1.default.model('Prescription', prescriptionSchema);
 exports.default = Prescription;

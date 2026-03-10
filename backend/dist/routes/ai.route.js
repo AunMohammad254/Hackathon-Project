@@ -15,10 +15,11 @@ const router = express_1.default.Router();
 router.get('/queue-status', authMiddleware_1.protect, ai_controller_1.aiQueueStatus);
 // All AI endpoints get rate limiting
 // Doctor endpoints
-router.post('/diagnose', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, ai_controller_1.analyzeSymptoms);
+router.post('/symptom-checker', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, ai_controller_1.symptomChecker);
 router.post('/analyze-report', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, uploadMiddleware_1.upload.single('report'), ai_controller_1.analyzeLabReport);
 router.post('/check-interactions', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, ai_controller_1.checkDrugInteractions);
 // Patient endpoints
+router.post('/explain-prescription', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), rateLimiter_1.aiRateLimiter, ai_controller_1.explainPrescription);
 router.post('/translate-prescription', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), rateLimiter_1.aiRateLimiter, ai_controller_1.translatePrescription);
 router.post('/chat', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), rateLimiter_1.aiRateLimiter, ai_controller_1.healthChat);
 // SaaS-gated endpoints (Pro plan only)

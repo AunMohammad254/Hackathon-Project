@@ -10,6 +10,8 @@ const roleMiddleware_1 = require("../middleware/roleMiddleware");
 const router = express_1.default.Router();
 // Only Doctor can create prescription
 router.post('/', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), prescription_controller_1.createPrescription);
+// Logged-in Patient can view their own prescriptions
+router.get('/my', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), prescription_controller_1.getMyPrescriptions);
 // Doctor, Patient, and Admin can view a patient's prescriptions
 router.get('/patient/:patientId', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor', 'Admin', 'Patient'), prescription_controller_1.getPatientPrescriptions);
 exports.default = router;

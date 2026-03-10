@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadPrescriptionPDF = void 0;
+exports.getSignedPrescriptionUrl = exports.uploadPrescriptionPDF = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -30,10 +30,9 @@ const uploadPrescriptionPDF = async (fileBuffer, fileName) => {
             console.error('Supabase Storage Error:', error);
             throw new Error(`Failed to upload to Supabase: ${error.message}`);
         }
-        const { data: publicUrlData } = getSupabase().storage
-            .from('prescriptions')
-            .getPublicUrl(fileName);
-        return publicUrlData.publicUrl;
+        // We return the raw filename. The controller will store this in the DB
+        // and generate fresh signed URLs whenever retrieved.
+        return fileName;
     }
     catch (error) {
         console.error('Detailed Error uploading PDF to Supabase:', error);
@@ -41,3 +40,28 @@ const uploadPrescriptionPDF = async (fileBuffer, fileName) => {
     }
 };
 exports.uploadPrescriptionPDF = uploadPrescriptionPDF;
+/**
+ * Dynamically generates a temporary signed URL for a given prescription file.
+ */
+const getSignedPrescriptionUrl = async (fileName) => {
+    try {
+        if (!fileName)
+            return null;
+        // If it's already a full HTTP URL (e.g., from old mock data), just return it
+        if (fileName.startsWith('http'))
+            return fileName;
+        const { data, error } = await getSupabase().storage
+            .from('prescriptions')
+            .createSignedUrl(fileName, 3600); // 1-hour TTL
+        if (error || !data?.signedUrl) {
+            console.error('Supabase Signed URL Error:', error);
+            return null;
+        }
+        return data.signedUrl;
+    }
+    catch (error) {
+        console.error('Failed to generate signed url:', error);
+        return null;
+    }
+};
+exports.getSignedPrescriptionUrl = getSignedPrescriptionUrl;

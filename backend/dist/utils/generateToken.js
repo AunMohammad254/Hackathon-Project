@@ -10,7 +10,7 @@ const generateToken = (id, role) => {
         throw new Error('JWT_SECRET is not defined');
     }
     return jsonwebtoken_1.default.sign({ id, role }, process.env.JWT_SECRET, {
-        expiresIn: '7d',
+        expiresIn: '1d', // SEC-06 FIX: Reduced from 7d to limit token abuse window
     });
 };
 exports.generateToken = generateToken;

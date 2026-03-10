@@ -8,6 +8,8 @@ const patient_controller_1 = require("../controllers/patient.controller");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const roleMiddleware_1 = require("../middleware/roleMiddleware");
 const router = express_1.default.Router();
+router.route('/profile')
+    .post(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.createPatientProfile);
 router.route('/')
     .post(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.createPatient)
     .get(authMiddleware_1.protect, patient_controller_1.getPatients);

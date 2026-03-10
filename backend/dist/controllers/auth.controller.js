@@ -23,16 +23,14 @@ const loginSchema = zod_1.z.object({
 const registerUser = async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
     const { name, email, password } = parsed.data;
     try {
         const userExists = await User_1.default.findOne({ email }).lean();
         if (userExists) {
-            return res.status(400).json({ message: 'User already exists' });
+            return res.status(400).json({ success: false, message: 'User already exists' });
         }
         const salt = await bcryptjs_1.default.genSalt(10);
         const hashedPassword = await bcryptjs_1.default.hash(password, salt);
@@ -52,7 +50,7 @@ const registerUser = async (req, res) => {
     }
     catch (error) {
         console.error('[Register Error]', error.message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 exports.registerUser = registerUser;
@@ -62,10 +60,8 @@ exports.registerUser = registerUser;
 const loginUser = async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({
-            message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors,
-        });
+        return res.status(400).json({ success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors, });
     }
     const { email, password } = parsed.data;
     try {
@@ -80,12 +76,12 @@ const loginUser = async (req, res) => {
             });
         }
         else {
-            res.status(401).json({ message: 'Invalid email or password' });
+            res.status(401).json({ success: false, message: 'Invalid email or password' });
         }
     }
     catch (error) {
         console.error('[Login Error]', error.message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 exports.loginUser = loginUser;
@@ -99,12 +95,12 @@ const getUserProfile = async (req, res) => {
             res.json(user);
         }
         else {
-            res.status(404).json({ message: 'User not found' });
+            res.status(404).json({ success: false, message: 'User not found' });
         }
     }
     catch (error) {
         console.error('[Profile Error]', error.message);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ success: false, message: 'Server error' });
     }
 };
 exports.getUserProfile = getUserProfile;

@@ -1,41 +1,16 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.upgradePlan = exports.predictiveAnalytics = exports.healthChat = exports.checkDrugInteractions = exports.translatePrescription = exports.analyzeLabReport = exports.analyzeSymptoms = exports.aiQueueStatus = void 0;
+exports.upgradePlan = exports.predictiveAnalytics = exports.healthChat = exports.checkDrugInteractions = exports.explainPrescription = exports.translatePrescription = exports.analyzeLabReport = exports.symptomChecker = exports.aiQueueStatus = void 0;
 const generative_ai_1 = require("@google/generative-ai");
 const geminiQueue_1 = require("../services/geminiQueue");
+const sanitize_1 = require("../utils/sanitize");
+const DiagnosisLog_1 = __importDefault(require("../models/DiagnosisLog"));
+const Prescription_1 = __importDefault(require("../models/Prescription"));
+const Appointment_1 = __importDefault(require("../models/Appointment"));
+const User_1 = __importDefault(require("../models/User"));
 // Helper: detect rate-limit errors from the queue and return 429 with countdown
 const handleAIError = (error, res, context) => {
     const msg = error.message || '';
@@ -49,7 +24,7 @@ const handleAIError = (error, res, context) => {
             retryAfterSeconds: retryAfter,
         });
     }
-    res.status(500).json({ message: `Failed to process AI request.` });
+    res.status(500).json({ success: false, message: `Failed to process AI request.` });
 };
 // BUG-01: Lazy-initialize Gemini client (only used for multimodal/lab report)
 let genAI = null;
@@ -64,71 +39,86 @@ const getGenAI = () => {
 };
 // ── Queue Status Endpoint ──
 const aiQueueStatus = async (_req, res) => {
-    res.status(200).json({ success: true, ...(0, geminiQueue_1.getQueueStatus)() });
+    const status = await (0, geminiQueue_1.getQueueStatus)();
+    res.status(200).json({ success: true, ...status });
 };
 exports.aiQueueStatus = aiQueueStatus;
-// ── Symptom Analysis ──
-const analyzeSymptoms = async (req, res) => {
+// ── Symptom Checker (Smart Diagnosis) ──
+const symptomChecker = async (req, res) => {
     try {
-        const { symptoms, age, gender, history } = req.body;
-        if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
-            return res.status(400).json({ message: 'A valid array of symptoms is required' });
+        if (req.user?.subscriptionPlan === 'Free') {
+            return res.status(403).json({ success: false, message: 'Upgrade to Pro to unlock AI features.' });
         }
+        const { patientId, symptoms, age, gender, medicalHistory } = req.body;
+        if (!symptoms || !Array.isArray(symptoms) || symptoms.length === 0) {
+            return res.status(400).json({ success: false, message: 'A valid array of symptoms is required' });
+        }
+        const safeSymptoms = (0, sanitize_1.sanitizePromptArray)(symptoms);
+        const safeAge = age ? (0, sanitize_1.sanitizePromptInput)(String(age), 10) : '';
+        const safeGender = gender ? (0, sanitize_1.sanitizePromptInput)(String(gender), 20) : '';
+        const safeHistory = medicalHistory ? (0, sanitize_1.sanitizePromptInput)(String(medicalHistory), 500) : '';
         const patientContext = [
-            `Symptoms: ${symptoms.join(', ')}`,
-            age ? `Age: ${age}` : '',
-            gender ? `Gender: ${gender}` : '',
-            history ? `Medical History: ${history}` : '',
+            `Symptoms: ${safeSymptoms.join(', ')}`,
+            safeAge ? `Age: ${safeAge}` : '',
+            safeGender ? `Gender: ${safeGender}` : '',
+            safeHistory ? `Medical History: ${safeHistory}` : '',
         ].filter(Boolean).join('\n      ');
         const prompt = `
-      You are an expert AI medical assistant participating in a specialized diagnosis workflow.
+      You are an expert medical assistant AI.
       A patient has presented with the following information:
       ${patientContext}
       
-      Please provide a highly professional, brief, yet insightful potential diagnosis.
-      Also, provide a 'riskLevel' strictly chosen from: "Low", "Medium", "High".
-      Include suggested tests if relevant.
+      Analyze these symptoms and provide a highly professional diagnosis assessment.
       
-      Format your response strictly as a JSON object, like this:
+      Format your response strictly as a RAW JSON object matching this exact structure:
       {
-        "insights": "Your professional explanation here...",
-        "riskLevel": "Low | Medium | High",
+        "possibleConditions": ["Condition 1", "Condition 2"],
+        "riskLevel": "Low" | "Medium" | "High" | "Critical",
         "suggestedTests": ["Test 1", "Test 2"]
       }
       
-      Ensure your output is ONLY valid JSON.
+      DO NOT include markdown formatting like \`\`\`json. Output ONLY the raw JSON object.
     `;
-        const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         try {
+            const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
+            const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
             const parsedData = JSON.parse(cleanedText);
             // Persist to DiagnosisLog
-            const DiagnosisLog = (await Promise.resolve().then(() => __importStar(require('../models/DiagnosisLog')))).default;
-            await DiagnosisLog.create({
+            // DiagnosisLog imported statically at top
+            await DiagnosisLog_1.default.create({
+                patientId: patientId || undefined,
                 symptoms,
-                aiResponse: parsedData.insights,
-                riskLevel: parsedData.riskLevel,
+                aiResponse: parsedData,
+                riskLevel: parsedData.riskLevel === 'Critical' ? 'High' : parsedData.riskLevel, // Mongoose enum fallback
                 doctorId: req.user._id,
                 age: age || undefined,
                 gender: gender || undefined,
             });
-            res.status(200).json({ success: true, data: parsedData });
+            return res.status(200).json(parsedData);
         }
-        catch (parseError) {
-            console.error('[AI Parse Error] Failed to parse Gemini JSON output');
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+        catch (aiError) {
+            console.error('[AI Symptom Checker Error]', aiError.message);
+            // Graceful Fallback
+            return res.status(200).json({
+                error: true,
+                message: "AI service temporarily unavailable. Please proceed with manual diagnosis.",
+                possibleConditions: [],
+                riskLevel: "Medium",
+                suggestedTests: []
+            });
         }
     }
     catch (error) {
-        handleAIError(error, res, 'AI Diagnosis Error');
+        console.error('[Symptom Checker Fatal Error]', error.message);
+        res.status(500).json({ success: false, message: 'Internal server error' });
     }
 };
-exports.analyzeSymptoms = analyzeSymptoms;
+exports.symptomChecker = symptomChecker;
 // ── Lab Report Analysis (multimodal — cannot use queue) ──
 const analyzeLabReport = async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ message: 'No report file uploaded' });
+            return res.status(400).json({ success: false, message: 'No report file uploaded' });
         }
         const client = getGenAI();
         const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -165,7 +155,7 @@ const analyzeLabReport = async (req, res) => {
         }
         catch (parseError) {
             console.error('[AI Parse Error] Failed to parse Gemini JSON output', cleanedText);
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
     }
     catch (error) {
@@ -178,15 +168,15 @@ const translatePrescription = async (req, res) => {
     try {
         const { prescriptionId, targetLanguage } = req.body;
         if (!prescriptionId || !targetLanguage) {
-            return res.status(400).json({ message: 'prescriptionId and targetLanguage are required' });
+            return res.status(400).json({ success: false, message: 'prescriptionId and targetLanguage are required' });
         }
-        const Prescription = (await Promise.resolve().then(() => __importStar(require('../models/Prescription')))).default;
-        const prescription = await Prescription.findById(prescriptionId).lean();
+        // Prescription imported statically at top
+        const prescription = await Prescription_1.default.findById(prescriptionId).lean();
         if (!prescription)
-            return res.status(404).json({ message: 'Prescription not found' });
+            return res.status(404).json({ success: false, message: 'Prescription not found' });
         const prompt = `
       You are a professional medical translator.
-      Translate the following prescription information into ${targetLanguage}.
+      Translate the following prescription information into ${(0, sanitize_1.sanitizePromptInput)(targetLanguage, 50)}.
       
       CRITICAL RULES:
       - Keep ALL medicine/drug names in English exactly as they are
@@ -214,7 +204,7 @@ const translatePrescription = async (req, res) => {
             res.status(200).json({ success: true, data: parsedData, language: targetLanguage });
         }
         catch {
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
     }
     catch (error) {
@@ -222,14 +212,66 @@ const translatePrescription = async (req, res) => {
     }
 };
 exports.translatePrescription = translatePrescription;
+// ── Prescription Explanation ──
+const explainPrescription = async (req, res) => {
+    try {
+        if (req.user?.subscriptionPlan === 'Free') {
+            return res.status(403).json({ success: false, message: 'Upgrade to Pro to unlock AI features.' });
+        }
+        const { medicines } = req.body;
+        if (!medicines || !Array.isArray(medicines) || medicines.length === 0) {
+            return res.status(400).json({ success: false, message: 'An array of medicines is required' });
+        }
+        const safeMedicines = (0, sanitize_1.sanitizePromptArray)(medicines.map((m) => typeof m === 'string' ? m : `${m.name} (${m.dosage})`)).join(', ');
+        const prompt = `
+      You are an expert medical AI assistant.
+      A patient has been prescribed the following medicines: ${safeMedicines}
+      
+      Provide a plain-English, easy-to-understand explanation of what these medicines are for.
+      Also provide 2-3 lifestyle tips and 2-3 preventive advice tips.
+      
+      Format your response strictly as a RAW JSON object matching this structure:
+      {
+        "explanation": "...",
+        "lifestyleAdvice": ["...", "..."],
+        "preventiveAdvice": ["...", "..."]
+      }
+      
+      DO NOT include markdown formatting like \`\`\`json. Output ONLY the raw JSON object.
+    `;
+        try {
+            const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
+            const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsedData = JSON.parse(cleanedText);
+            return res.status(200).json(parsedData);
+        }
+        catch (aiError) {
+            console.error('[AI Explain Prescription Error]', aiError.message);
+            // Graceful Fallback
+            return res.status(200).json({
+                error: true,
+                message: "AI service temporarily unavailable. Please consult your doctor for an explanation.",
+                explanation: "Please consult your doctor for an explanation regarding these medications.",
+                lifestyleAdvice: [],
+                preventiveAdvice: []
+            });
+        }
+    }
+    catch (error) {
+        console.error('[Explain Prescription Fatal Error]', error.message);
+        res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+};
+exports.explainPrescription = explainPrescription;
 // ── Drug Interaction Checker ──
 const checkDrugInteractions = async (req, res) => {
     try {
         const { medicines } = req.body;
         if (!medicines || !Array.isArray(medicines) || medicines.length < 2) {
-            return res.status(400).json({ message: 'At least 2 medicines are required to check interactions' });
+            return res.status(400).json({ success: false, message: 'At least 2 medicines are required to check interactions' });
         }
-        const drugNames = medicines.map((m) => m.name || m).join(', ');
+        // SEC-09 FIX: Sanitize drug names before embedding in prompt
+        const drugNames = medicines.map((m) => (0, sanitize_1.sanitizePromptInput)(String(m.name || m), 100)).join(', ');
         const prompt = `
       You are an expert pharmacologist AI assistant.
       A doctor is about to prescribe the following medicines together: ${drugNames}
@@ -259,7 +301,7 @@ const checkDrugInteractions = async (req, res) => {
             res.status(200).json({ success: true, data: parsedData });
         }
         catch {
-            res.status(500).json({ message: 'AI generated invalid formatting. Try again.' });
+            res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
     }
     catch (error) {
@@ -272,14 +314,15 @@ const healthChat = async (req, res) => {
     try {
         const { message } = req.body;
         if (!message || typeof message !== 'string') {
-            return res.status(400).json({ message: 'A message string is required' });
+            return res.status(400).json({ success: false, message: 'A message string is required' });
         }
+        // SEC-09 FIX: Sanitize user chat message
+        const safeMessage = (0, sanitize_1.sanitizePromptInput)(message, 1000);
         const patientId = req.user._id;
-        const Prescription = (await Promise.resolve().then(() => __importStar(require('../models/Prescription')))).default;
-        const Appointment = (await Promise.resolve().then(() => __importStar(require('../models/Appointment')))).default;
+        // Prescription & Appointment imported statically at top
         const [prescriptions, appointments] = await Promise.all([
-            Prescription.find({ patientId }).populate('doctorId', 'name').sort({ createdAt: -1 }).limit(10).lean(),
-            Appointment.find({ patientId }).populate('doctorId', 'name').sort({ date: -1 }).limit(10).lean(),
+            Prescription_1.default.find({ patientId }).populate('doctorId', 'name').sort({ createdAt: -1 }).limit(10).lean(),
+            Appointment_1.default.find({ patientId }).populate('doctorId', 'name').sort({ date: -1 }).limit(10).lean(),
         ]);
         const prompt = `
       You are a helpful, empathetic AI health assistant for a clinic management system.
@@ -310,7 +353,7 @@ const healthChat = async (req, res) => {
             status: a.status,
         }))) : 'No appointments on record.'}
 
-      The patient's message is: ${message}
+      The patient's message is: ${safeMessage}
     `;
         const reply = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
         res.status(200).json({ success: true, reply });
@@ -323,13 +366,12 @@ exports.healthChat = healthChat;
 // ── Predictive Analytics ──
 const predictiveAnalytics = async (req, res) => {
     try {
-        const DiagnosisLog = (await Promise.resolve().then(() => __importStar(require('../models/DiagnosisLog')))).default;
-        const Appointment = (await Promise.resolve().then(() => __importStar(require('../models/Appointment')))).default;
+        // DiagnosisLog & Appointment imported statically at top
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const [recentDiagnoses, recentAppointments] = await Promise.all([
-            DiagnosisLog.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
-            Appointment.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
+            DiagnosisLog_1.default.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
+            Appointment_1.default.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
         ]);
         const prompt = `
       You are an AI health analytics assistant. Analyze the following 30-day clinic data and provide predictions.
@@ -376,10 +418,10 @@ exports.predictiveAnalytics = predictiveAnalytics;
 // ── Plan Upgrade (SaaS Simulation) ──
 const upgradePlan = async (req, res) => {
     try {
-        const User = (await Promise.resolve().then(() => __importStar(require('../models/User')))).default;
-        const user = await User.findById(req.user._id);
+        // User imported statically at top
+        const user = await User_1.default.findById(req.user._id);
         if (!user)
-            return res.status(404).json({ message: 'User not found' });
+            return res.status(404).json({ success: false, message: 'User not found' });
         user.subscriptionPlan = user.subscriptionPlan === 'Pro' ? 'Free' : 'Pro';
         await user.save();
         res.status(200).json({
@@ -390,7 +432,7 @@ const upgradePlan = async (req, res) => {
     }
     catch (error) {
         console.error('[Plan Upgrade Error]', error.message);
-        res.status(500).json({ message: 'Failed to update plan.' });
+        res.status(500).json({ success: false, message: 'Failed to update plan.' });
     }
 };
 exports.upgradePlan = upgradePlan;
