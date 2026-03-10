@@ -22,8 +22,10 @@ const updateStatusSchema = z.object({
 export const createAppointment = async (req: AuthRequest, res: Response) => {
     const parsed = createAppointmentSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ success: false, message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors, });
+        return res.status(400).json({
+            success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
     }
 
     const { doctorId, date, patientId: bodyPatientId } = parsed.data;
@@ -33,10 +35,17 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
         if (req.user!.role === 'Patient') {
             // BUG-02 FIX: For patients, look up their Patient record via createdBy link
-            const patient = await Patient.findOne({ createdBy: req.user!._id }).lean();
+            let patient = await Patient.findOne({ createdBy: req.user!._id }).lean();
             if (!patient) {
-                // If the patient profile does not exist yet, return a clean 404
-                return res.status(404).json({ success: false, message: 'Patient profile incomplete' });
+                // If the patient profile does not exist yet (e.g. registered before auto-create was added), auto-create one
+                const newPatient = await Patient.create({
+                    name: req.user!.name,
+                    age: 0,
+                    gender: 'Other',
+                    contact: req.user!.email,
+                    createdBy: req.user!._id
+                });
+                patientId = newPatient._id.toString();
             } else {
                 patientId = patient._id.toString();
             }

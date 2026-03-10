@@ -2,6 +2,7 @@ import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import User from '../models/User';
+import Patient from '../models/Patient';
 import { generateToken } from '../utils/generateToken';
 import { AuthRequest } from '../middleware/authMiddleware';
 
@@ -22,8 +23,10 @@ const loginSchema = z.object({
 export const registerUser = async (req: AuthRequest, res: Response) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ success: false, message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors, });
+        return res.status(400).json({
+            success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
     }
 
     const { name, email, password } = parsed.data;
@@ -45,6 +48,15 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
             role: 'Patient', // SEC-02: Always default to Patient, ignore user-supplied role
         });
 
+        // Auto-create a Patient profile so the user can book appointments immediately
+        await Patient.create({
+            name,
+            age: 0,
+            gender: 'Other',
+            contact: email, // Default contact to email
+            createdBy: user._id
+        });
+
         res.status(201).json({
             _id: user._id,
             name: user.name,
@@ -64,8 +76,10 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
 export const loginUser = async (req: AuthRequest, res: Response) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ success: false, message: 'Validation failed',
-            errors: parsed.error.flatten().fieldErrors, });
+        return res.status(400).json({
+            success: false, message: 'Validation failed',
+            errors: parsed.error.flatten().fieldErrors,
+        });
     }
 
     const { email, password } = parsed.data;
