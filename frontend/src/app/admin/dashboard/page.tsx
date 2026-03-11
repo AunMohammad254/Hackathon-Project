@@ -15,6 +15,15 @@ import {
 import {
     PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
+import { Sparkles } from "lucide-react";
+
+interface AIAnalytics {
+    topConditions: string[];
+    patientLoadForecast: string;
+    doctorPerformanceTrends: string;
+    trendInsight: string;
+    recommendation: string;
+}
 
 interface DashboardStats {
     totalPatients: number;
@@ -47,6 +56,8 @@ export default function AdminDashboard() {
     const [recentActivity, setRecentActivity] = useState<AppointmentActivity[]>([]);
     const [monthlyTrends, setMonthlyTrends] = useState<Trend[]>([]);
     const [topDiagnoses, setTopDiagnoses] = useState<DiagnosisRisk[]>([]);
+    const [aiData, setAiData] = useState<AIAnalytics | null>(null);
+    const [aiLoading, setAiLoading] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isUpgrading, setIsUpgrading] = useState(false);
 
@@ -66,8 +77,26 @@ export default function AdminDashboard() {
                 setLoading(false);
             }
         };
+
         fetchAdminData();
     }, []);
+
+    const handleGenerateAI = async () => {
+        setAiLoading(true);
+        try {
+            const res = await api.post("/ai/predictive-analytics");
+            if (res.data?.success) {
+                setAiData(res.data.data);
+                toast.success("AI Predictive Analytics generated successfully!");
+            }
+        } catch (error: any) {
+            console.error("Failed to generate AI predictive analytics", error);
+            const msg = error.response?.data?.message || "Failed to generate analytics";
+            toast.error(msg);
+        } finally {
+            setAiLoading(false);
+        }
+    };
 
     const pieData = stats ? [
         { name: "Pending", value: stats.breakdown.pending },
@@ -273,6 +302,69 @@ export default function AdminDashboard() {
                                     )}
                                 </TableBody>
                             </Table>
+                        </div>
+                    </div>
+
+                    {/* AI Predictive Analytics Section */}
+                    <div className="mt-8 bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl shadow-lg border border-indigo-500/30 overflow-hidden relative">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                            <Sparkles className="w-48 h-48 text-indigo-400 animate-pulse" />
+                        </div>
+                        <div className="p-8 relative z-10">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-indigo-500/30 pb-4">
+                                <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                                    <Sparkles className="text-indigo-400" />
+                                    AI Predictive Analytics
+                                </h2>
+                                <Button 
+                                    onClick={handleGenerateAI} 
+                                    disabled={aiLoading}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-500"
+                                >
+                                    {aiLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                                    Generate Insight
+                                </Button>
+                            </div>
+                            {aiLoading ? (
+                                <div className="flex items-center gap-3 text-indigo-200">
+                                    <Loader2 className="animate-spin w-5 h-5" />
+                                    Analyzing recent clinic data with Gemini AI...
+                                </div>
+                            ) : aiData ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+                                    <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-5">
+                                        <h3 className="text-sm font-semibold text-indigo-300 uppercase tracking-wider mb-2">Top Conditions</h3>
+                                        <ul className="list-disc list-inside text-slate-100 space-y-1">
+                                            {aiData.topConditions.map((cond, idx) => (
+                                                <li key={idx}>{cond}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-5">
+                                        <h3 className="text-sm font-semibold text-indigo-300 uppercase tracking-wider mb-2">Patient Load Forecast</h3>
+                                        <p className="text-slate-100 leading-relaxed">{aiData.patientLoadForecast}</p>
+                                    </div>
+                                    <div className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-5">
+                                        <h3 className="text-sm font-semibold text-indigo-300 uppercase tracking-wider mb-2">Doctor Performance Trends</h3>
+                                        <p className="text-slate-100 leading-relaxed">{aiData.doctorPerformanceTrends}</p>
+                                    </div>
+                                    <div className="bg-emerald-500/10 backdrop-blur-sm border border-emerald-500/20 rounded-xl p-5">
+                                        <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider mb-2">Recommendation & Insights</h3>
+                                        <p className="text-slate-100 leading-relaxed mb-3"><strong>Insight:</strong> {aiData.trendInsight}</p>
+                                        <p className="text-emerald-100 leading-relaxed bg-emerald-500/20 p-3 rounded-lg border border-emerald-500/30">
+                                            <strong>Action:</strong> {aiData.recommendation}
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <Sparkles className="w-12 h-12 text-indigo-500/50 mx-auto mb-4" />
+                                    <p className="text-indigo-200 text-lg mb-2">Ready to analyze your clinic data?</p>
+                                    <p className="text-indigo-400/80 max-w-md mx-auto">
+                                        Click "Generate Insight" to use Gemini AI to forecast patient load, track doctor performance, and spot emerging health conditions.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </>

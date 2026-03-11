@@ -42,11 +42,15 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        const isStaff = role !== 'Patient';
+        const initialStatus = isStaff ? 'Pending' : 'Approved';
+
         const user = await User.create({
             name,
             email,
             password: hashedPassword,
             role: role,
+            status: initialStatus,
         });
 
         // Auto-create a Patient profile only if the user is a Patient
@@ -57,6 +61,14 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
                 gender: 'Other',
                 contact: email, // Default contact to email
                 createdBy: user._id
+            });
+        }
+
+        if (initialStatus === 'Pending') {
+            return res.status(201).json({
+                success: true,
+                message: 'Registration successful. Your account is pending admin approval.',
+                isPending: true
             });
         }
 
@@ -88,9 +100,19 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
     const { email, password } = parsed.data;
 
     try {
+        // Find the user, typing the returned document to include status from the schema update
         const user = await User.findOne({ email });
 
         if (user && (await bcrypt.compare(password, user.password))) {
+            const status = (user as any).status || 'Approved';
+
+            if (status === 'Pending') {
+                return res.status(403).json({ success: false, message: 'Account pending approval' });
+            }
+            if (status === 'Rejected') {
+                return res.status(403).json({ success: false, message: 'Account registration rejected' });
+            }
+
             res.json({
                 _id: user._id,
                 name: user.name,

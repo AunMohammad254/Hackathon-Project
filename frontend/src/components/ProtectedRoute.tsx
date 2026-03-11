@@ -26,7 +26,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
             } else if (!user && hasToken) {
                 // Token exists but user not yet hydrated — wait for AuthContext
                 return;
-            } else if (user && !allowedRoles.includes(user.role)) {
+            } else if (user && !allowedRoles.includes(user.role) && !(allowedRoles.includes("Admin") && user.role === "Super Admin")) {
                 // Logged in but wrong role
                 router.push("/unauthorized");
             } else if (user) {

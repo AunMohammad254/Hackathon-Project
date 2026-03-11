@@ -15,6 +15,7 @@ interface User {
 
 interface AuthContextType {
     user: User | null;
+    loading: boolean;
     login: (userData: User) => void;
     logout: () => void;
     updateUser: (updates: Partial<User>) => void;
@@ -28,6 +29,7 @@ const TOKEN_KEY = "clinicToken";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
@@ -50,6 +52,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             } catch {
                 // Token expired or invalid — clear it
                 localStorage.removeItem(TOKEN_KEY);
+            } finally {
+                setLoading(false);
             }
         };
 
@@ -60,7 +64,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(userData);
         // SEC-05 FIX: Only persist the token, not the full user object
         localStorage.setItem(TOKEN_KEY, userData.token);
-        router.push(`/${userData.role.toLowerCase()}/dashboard`);
+        const routePrefix = userData.role === 'Super Admin' ? 'admin' : userData.role.toLowerCase();
+        router.push(`/${routePrefix}/dashboard`);
     };
 
     const logout = () => {
@@ -78,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, updateUser }}>
+        <AuthContext.Provider value={{ user, loading, login, logout, updateUser }}>
             {children}
         </AuthContext.Provider>
     );

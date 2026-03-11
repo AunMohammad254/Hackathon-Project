@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateSubscriptionPlan = exports.deleteUser = exports.updateUserRole = exports.getAllUsers = exports.getDashboardStats = void 0;
+exports.updateUserStatus = exports.getPendingUsers = exports.updateSubscriptionPlan = exports.deleteUser = exports.updateUserRole = exports.getAllUsers = exports.getDashboardStats = void 0;
 const zod_1 = require("zod");
 const mongoose_1 = __importDefault(require("mongoose"));
 const Patient_1 = __importDefault(require("../models/Patient"));
@@ -210,8 +210,10 @@ const updateSubscriptionSchema = zod_1.z.object({
 const updateSubscriptionPlan = async (req, res) => {
     const parsed = updateSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ success: false, message: 'Invalid input data',
-            errors: parsed.error.flatten().fieldErrors, });
+        return res.status(400).json({
+            success: false, message: 'Invalid input data',
+            errors: parsed.error.flatten().fieldErrors,
+        });
     }
     try {
         const { userId, plan } = parsed.data;
@@ -233,3 +235,50 @@ const updateSubscriptionPlan = async (req, res) => {
     }
 };
 exports.updateSubscriptionPlan = updateSubscriptionPlan;
+// @desc    Get all pending users (Super Admin / Admin)
+// @route   GET /api/admin/users/pending
+// @access  Private (Admin, Super Admin)
+const getPendingUsers = async (req, res) => {
+    try {
+        const users = await User_1.default.find({ status: 'Pending' }).select('-password').sort({ createdAt: -1 }).lean();
+        res.json({ success: true, users });
+    }
+    catch (error) {
+        console.error('[Get Pending Users Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.getPendingUsers = getPendingUsers;
+const updateStatusSchema = zod_1.z.object({
+    status: zod_1.z.enum(['Approved', 'Rejected']),
+});
+// @desc    Update user status (Approve/Reject)
+// @route   PUT /api/admin/users/:id/status
+// @access  Private (Super Admin)
+const updateUserStatus = async (req, res) => {
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ success: false, message: 'Invalid status. Must be Approved or Rejected' });
+    }
+    try {
+        const user = await User_1.default.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        user.status = parsed.data.status;
+        await user.save();
+        if (user.role === 'Doctor' && parsed.data.status === 'Approved') {
+            cache_1.doctorCache.invalidate('all_doctors');
+        }
+        res.json({
+            success: true,
+            message: `User status updated to ${parsed.data.status}`,
+            user: { _id: user._id, name: user.name, email: user.email, role: user.role, status: user.status },
+        });
+    }
+    catch (error) {
+        console.error('[Update Status Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.updateUserStatus = updateUserStatus;

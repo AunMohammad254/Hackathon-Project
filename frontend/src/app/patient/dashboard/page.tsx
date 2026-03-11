@@ -14,11 +14,29 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BookAppointmentModal } from "@/components/patient/BookAppointmentModal";
 
+interface DoctorInfo {
+    _id: string;
+    name: string;
+}
+
 interface Appointment {
     _id: string;
     date: string;
     status: string;
-    doctorId: { _id: string; name: string } | null;
+    doctorId: DoctorInfo | null;
+}
+
+interface Prescription {
+    _id: string;
+    createdAt: string;
+    doctorId: DoctorInfo | null;
+}
+
+interface Diagnosis {
+    _id: string;
+    createdAt: string;
+    riskLevel: string;
+    doctorId: DoctorInfo | null;
 }
 
 // Unified Timeline Item for Medical History
@@ -34,24 +52,32 @@ interface TimelineItem {
 export default function PatientDashboard() {
     const { user, updateUser } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+    const [diagnoses, setDiagnoses] = useState<Diagnosis[]>([]);
     const [loading, setLoading] = useState(true);
     const [plan, setPlan] = useState(user?.subscriptionPlan || "Free");
     const [isBookingOpen, setIsBookingOpen] = useState(false);
 
-    const fetchAppointments = async () => {
+    const fetchTimelineData = async () => {
         try {
-            const res = await api.get("/appointments?limit=50");
-            setAppointments(res.data);
+            const [aptRes, preRes, diagRes] = await Promise.all([
+                api.get("/appointments?limit=50"),
+                api.get("/prescriptions/my"),
+                api.get("/patients/my-diagnoses")
+            ]);
+            setAppointments(aptRes.data);
+            setPrescriptions(preRes.data?.data || []);
+            setDiagnoses(diagRes.data?.data || []);
         } catch (error) {
-            console.error("Failed to fetch appointments", error);
-            toast.error("Failed to load appointments. Please refresh the page.");
+            console.error("Failed to fetch timeline data", error);
+            toast.error("Failed to load timeline. Please refresh the page.");
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchAppointments();
+        fetchTimelineData();
     }, [user]);
 
     // Analytics grouping
@@ -60,17 +86,32 @@ export default function PatientDashboard() {
     );
     const completed = appointments.filter((a) => a.status === "completed");
 
-    // Unified Timeline Mapping (Currently only appointments, but built to scale)
+    // Unified Timeline Mapping
     const timelineItems: TimelineItem[] = [
-        ...appointments.map(apt => ({
+        ...appointments.map((apt): TimelineItem => ({
             id: apt._id,
-            type: "appointment" as const,
+            type: "appointment",
             date: apt.date,
             title: "Appointment",
             status: apt.status,
             doctorName: apt.doctorId?.name || "Unknown Doctor"
+        })),
+        ...prescriptions.map((pre): TimelineItem => ({
+            id: pre._id,
+            type: "prescription",
+            date: pre.createdAt,
+            title: "Prescription",
+            status: "issued",
+            doctorName: pre.doctorId?.name || "Unknown Doctor"
+        })),
+        ...diagnoses.map((diag): TimelineItem => ({
+            id: diag._id,
+            type: "diagnosis",
+            date: diag.createdAt,
+            title: "Diagnosis Review",
+            status: diag.riskLevel,
+            doctorName: diag.doctorId?.name || "Unknown Doctor"
         }))
-        // In the future, fetch and spread diagnoses and prescriptions here
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const togglePlan = async () => {
@@ -322,7 +363,7 @@ export default function PatientDashboard() {
             <BookAppointmentModal
                 open={isBookingOpen}
                 onOpenChange={setIsBookingOpen}
-                onSuccess={fetchAppointments}
+                onSuccess={fetchTimelineData}
             />
         </>
     );

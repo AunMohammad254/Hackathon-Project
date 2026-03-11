@@ -113,15 +113,35 @@ const startServer = async () => {
         });
 
         // Graceful shutdown
+        let isShuttingDown = false;
         const shutdown = async (signal: string) => {
-            console.log(`\n${signal} received. Shutting down gracefully...`);
+            if (isShuttingDown) {
+                console.log('\nForcefully shutting down...');
+                process.exit(1);
+            }
+            isShuttingDown = true;
+            console.log(`\n${signal} received. Shutting down server...`);
+
+            // Stop accepting new connections and forcefully close existing ones
+            if ('closeAllConnections' in server) {
+                server.closeAllConnections();
+            }
+
+            // Force exit after 3 seconds if graceful shutdown fails
+            setTimeout(() => {
+                console.error('Shutdown timeout, forcing exit...');
+                process.exit(1);
+            }, 3000).unref();
+
             server.close(async () => {
-                await mongoose.connection.close();
-                console.log('MongoDB connection closed.');
-                process.exit(0);
+                try {
+                    await mongoose.disconnect();
+                    console.log('MongoDB connection closed.');
+                    process.exit(0);
+                } catch (error) {
+                    process.exit(1);
+                }
             });
-            // Force exit after 10s if graceful shutdown fails
-            setTimeout(() => process.exit(1), 10000);
         };
 
         process.on('SIGTERM', () => shutdown('SIGTERM'));

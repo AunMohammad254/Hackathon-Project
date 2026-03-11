@@ -6,6 +6,11 @@ import { AuthRequest } from './authMiddleware';
  * Free users receive a 403 with an upgrade prompt.
  */
 export const requireProPlan = (req: AuthRequest, res: Response, next: NextFunction) => {
+    const role = req.user?.role;
+    if (role === 'Admin' || role === 'Super Admin') {
+        return next();
+    }
+
     const plan = req.user?.subscriptionPlan || 'Free';
 
     if (plan !== 'Pro') {

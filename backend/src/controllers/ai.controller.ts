@@ -390,32 +390,64 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
     }
 };
 
+interface PopulatedDiagnosis {
+    symptoms: string[];
+    riskLevel: string;
+    createdAt: Date;
+    doctorId?: { name: string };
+}
+
+interface PopulatedAppointment {
+    status: string;
+    date: string;
+    doctorId?: { name: string };
+}
+
 // ── Predictive Analytics ──
 export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
     try {
-        // DiagnosisLog & Appointment imported statically at top
+        const user = await User.findById(req.user!._id);
+        if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+        const now = new Date();
+        const resetDate = new Date((user as any).aiPredictiveGenResetDate || 0);
+        
+        if (now.toDateString() !== resetDate.toDateString()) {
+            (user as any).aiPredictiveGenCount = 0;
+            (user as any).aiPredictiveGenResetDate = now;
+        }
+
+        const maxLimit = user.subscriptionPlan === 'Pro' ? 20 : 10;
+
+        if ((user as any).aiPredictiveGenCount >= maxLimit) {
+            return res.status(429).json({ 
+                success: false, 
+                message: `Daily limit reached. You can generate predictive analytics ${maxLimit} times a day on the ${user.subscriptionPlan} plan.` 
+            });
+        }
 
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
         const [recentDiagnoses, recentAppointments] = await Promise.all([
-            DiagnosisLog.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
-            Appointment.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
+            DiagnosisLog.find({ createdAt: { $gte: thirtyDaysAgo } }).populate('doctorId', 'name').lean(),
+            Appointment.find({ createdAt: { $gte: thirtyDaysAgo } }).populate('doctorId', 'name').lean(),
         ]);
 
         const prompt = `
       You are an AI health analytics assistant. Analyze the following 30-day clinic data and provide predictions.
       
       RECENT DIAGNOSES (${recentDiagnoses.length} total):
-      ${JSON.stringify(recentDiagnoses.map((d: any) => ({ symptoms: d.symptoms, riskLevel: d.riskLevel, date: d.createdAt })).slice(0, 20))}
+      ${JSON.stringify((recentDiagnoses as unknown as PopulatedDiagnosis[]).map(d => ({ symptoms: d.symptoms, riskLevel: d.riskLevel, date: d.createdAt, doctor: d.doctorId?.name })).slice(0, 50))}
       
       RECENT APPOINTMENTS (${recentAppointments.length} total):
-      ${JSON.stringify(recentAppointments.map((a: any) => ({ status: a.status, date: a.date })).slice(0, 20))}
+      ${JSON.stringify((recentAppointments as unknown as PopulatedAppointment[]).map(a => ({ status: a.status, date: a.date, doctor: a.doctorId?.name })).slice(0, 50))}
 
-      Provide your analysis as JSON:
+      Provide your analysis strictly as JSON matching this format:
       {
         "topConditions": ["condition1", "condition2", "condition3"],
         "patientLoadForecast": "Brief forecast of patient volume for next week",
+        "doctorPerformanceTrends": "Insights on doctor workload and performance trends",
         "trendInsight": "Key trend or insight from the data",
         "recommendation": "One actionable recommendation for clinic management"
       }
@@ -423,18 +455,32 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
       Output ONLY valid JSON.
     `;
 
-        const responseText = await queueGeminiRequest(prompt);
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const client = getGenAI();
+        const model = client.getGenerativeModel({ 
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: "application/json" }
+        });
+        
+        const result = await model.generateContent(prompt);
+        const cleaned = result.response.text().trim();
 
         try {
             const parsed = JSON.parse(cleaned);
+
+            (user as any).aiPredictiveGenCount += 1;
+            await user.save();
+
             res.status(200).json({ success: true, data: parsed });
         } catch {
+            (user as any).aiPredictiveGenCount += 1;
+            await user.save();
+
             res.status(200).json({
                 success: true,
                 data: {
                     topConditions: ['Insufficient data'],
                     patientLoadForecast: 'Not enough data for forecasting yet.',
+                    doctorPerformanceTrends: 'Need more appointment and diagnosis logs to analyze doctor performance.',
                     trendInsight: 'Add more diagnoses to generate insights.',
                     recommendation: 'Continue logging patient visits for accurate predictions.',
                 },

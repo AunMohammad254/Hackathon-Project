@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { z } from 'zod';
 import Patient from '../models/Patient';
+import DiagnosisLog from '../models/DiagnosisLog';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 const createPatientSchema = z.object({
@@ -179,3 +180,26 @@ export const deletePatient = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };
+
+// @desc    Get patient diagnoses
+// @route   GET /api/patients/my-diagnoses
+// @access  Private (Patient)
+export const getMyDiagnoses = async (req: AuthRequest, res: Response) => {
+    try {
+        const patient = await Patient.findOne({ createdBy: req.user!._id });
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient profile not found' });
+        }
+        
+        const diagnoses = await DiagnosisLog.find({ patientId: patient._id })
+            .populate('doctorId', 'name')
+            .sort({ createdAt: -1 })
+            .lean();
+            
+        res.json({ success: true, data: diagnoses });
+    } catch (error: unknown) {
+        console.error('[Get Patient Diagnoses Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+

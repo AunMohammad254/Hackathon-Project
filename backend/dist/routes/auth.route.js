@@ -4,10 +4,25 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const auth_controller_1 = require("../controllers/auth.controller");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = express_1.default.Router();
-router.post('/register', auth_controller_1.registerUser);
+const MongoStore = require('rate-limit-mongo');
+// Strict rate limiting for registration to prevent spam
+const registerLimiter = (0, express_rate_limit_1.default)({
+    store: new MongoStore({
+        uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
+        expireTimeMs: 60 * 60 * 1000,
+        errorHandler: console.error.bind(console, 'rate-limit-mongo')
+    }),
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5, // 5 registrations per hour per IP
+    message: { success: false, message: 'Too many registrations from this IP, please try again after an hour.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+router.post('/register', registerLimiter, auth_controller_1.registerUser);
 router.post('/login', auth_controller_1.loginUser);
 router.get('/profile', authMiddleware_1.protect, auth_controller_1.getUserProfile);
 exports.default = router;

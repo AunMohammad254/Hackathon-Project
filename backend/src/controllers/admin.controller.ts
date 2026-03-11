@@ -237,14 +237,16 @@ const updateSubscriptionSchema = z.object({
 export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) => {
     const parsed = updateSubscriptionSchema.safeParse(req.body);
     if (!parsed.success) {
-        return res.status(400).json({ success: false, message: 'Invalid input data',
-            errors: parsed.error.flatten().fieldErrors, });
+        return res.status(400).json({
+            success: false, message: 'Invalid input data',
+            errors: parsed.error.flatten().fieldErrors,
+        });
     }
 
     try {
         const { userId, plan } = parsed.data;
         const user = await User.findById(userId);
-        
+
         if (!user) {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
@@ -259,6 +261,56 @@ export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) =>
         });
     } catch (error: unknown) {
         console.error('[Update Subscription Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// @desc    Get all pending users (Super Admin / Admin)
+// @route   GET /api/admin/users/pending
+// @access  Private (Admin, Super Admin)
+export const getPendingUsers = async (req: AuthRequest, res: Response) => {
+    try {
+        const users = await User.find({ status: 'Pending' }).select('-password').sort({ createdAt: -1 }).lean();
+        res.json({ success: true, users });
+    } catch (error: unknown) {
+        console.error('[Get Pending Users Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+const updateStatusSchema = z.object({
+    status: z.enum(['Approved', 'Rejected']),
+});
+
+// @desc    Update user status (Approve/Reject)
+// @route   PUT /api/admin/users/:id/status
+// @access  Private (Super Admin)
+export const updateUserStatus = async (req: AuthRequest, res: Response) => {
+    const parsed = updateStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ success: false, message: 'Invalid status. Must be Approved or Rejected' });
+    }
+
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        (user as any).status = parsed.data.status;
+        await user.save();
+
+        if (user.role === 'Doctor' && parsed.data.status === 'Approved') {
+            doctorCache.invalidate('all_doctors');
+        }
+
+        res.json({
+            success: true,
+            message: `User status updated to ${parsed.data.status}`,
+            user: { _id: user._id, name: user.name, email: user.email, role: user.role, status: (user as any).status },
+        });
+    } catch (error: unknown) {
+        console.error('[Update Status Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

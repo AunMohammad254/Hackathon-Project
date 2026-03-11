@@ -20,8 +20,13 @@ const userSchema = new mongoose_1.default.Schema({
     },
     role: {
         type: String,
-        enum: ['Admin', 'Doctor', 'Receptionist', 'Patient'],
+        enum: ['Admin', 'Super Admin', 'Doctor', 'Receptionist', 'Patient'],
         required: true,
+    },
+    status: {
+        type: String,
+        enum: ['Pending', 'Approved', 'Rejected'],
+        default: 'Approved',
     },
     subscriptionPlan: {
         type: String,

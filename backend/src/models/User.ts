@@ -16,13 +16,26 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['Admin', 'Doctor', 'Receptionist', 'Patient'],
+        enum: ['Admin', 'Super Admin', 'Doctor', 'Receptionist', 'Patient'],
         required: true,
+    },
+    status: {
+        type: String,
+        enum: ['Pending', 'Approved', 'Rejected'],
+        default: 'Approved',
     },
     subscriptionPlan: {
         type: String,
         enum: ['Free', 'Pro'],
         default: 'Free',
+    },
+    aiPredictiveGenCount: {
+        type: Number,
+        default: 0,
+    },
+    aiPredictiveGenResetDate: {
+        type: Date,
+        default: Date.now,
     },
 }, { timestamps: true });
 

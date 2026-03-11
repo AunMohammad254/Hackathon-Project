@@ -23,7 +23,7 @@ router.post('/translate-prescription', protect, authorizeRoles('Patient'), aiRat
 router.post('/chat', protect, authorizeRoles('Patient'), aiRateLimiter, healthChat);
 
 // SaaS-gated endpoints (Pro plan only)
-router.post('/predictive-analytics', protect, authorizeRoles('Admin', 'Doctor'), requireProPlan, aiRateLimiter, predictiveAnalytics);
+router.post('/predictive-analytics', protect, authorizeRoles('Admin'), requireProPlan, aiRateLimiter, predictiveAnalytics);
 
 // Plan management (no rate limit needed)
 router.post('/upgrade-plan', protect, upgradePlan);
