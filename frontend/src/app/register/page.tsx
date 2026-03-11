@@ -11,6 +11,7 @@ export default function Register() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [role, setRole] = useState("Patient");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
@@ -20,7 +21,7 @@ export default function Register() {
         setError("");
         setLoading(true);
         try {
-            const res = await api.post("/auth/register", { name, email, password });
+            const res = await api.post("/auth/register", { name, email, password, role });
             login(res.data);
         } catch {
             setError("Unable to connect to server. Please try again.");
@@ -105,66 +106,83 @@ export default function Register() {
                         )}
 
                         <div className="space-y-4">
-                            {/* Name */}
-                            <div>
-                                <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
-                                    Full Name
-                                </label>
-                                <div className="relative">
-                                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                    <input
-                                        id="name"
-                                        type="text"
-                                        required
-                                        suppressHydrationWarning
-                                        className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                                        placeholder="Dr. Jane Smith"
-                                        value={name}
-                                        onChange={(e) => setName(e.target.value)}
-                                    />
+                            <div className="space-y-4">
+                                {/* Name */}
+                                <div>
+                                    <label htmlFor="name" className="block text-sm font-medium text-slate-300 mb-2">
+                                        Full Name
+                                    </label>
+                                    <div className="relative">
+                                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input
+                                            id="name"
+                                            type="text"
+                                            required
+                                            suppressHydrationWarning
+                                            className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
+                                            placeholder="Dr. Jane Smith"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Email */}
-                            <div>
-                                <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
-                                    Email Address
-                                </label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                    <input
-                                        id="email"
-                                        type="email"
-                                        autoComplete="email"
-                                        required
-                                        suppressHydrationWarning
-                                        className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                                        placeholder="doctor@clinic.com"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                    />
+                                {/* Email */}
+                                <div>
+                                    <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-2">
+                                        Email Address
+                                    </label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input
+                                            id="email"
+                                            type="email"
+                                            autoComplete="email"
+                                            required
+                                            suppressHydrationWarning
+                                            className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
+                                            placeholder="doctor@clinic.com"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* Password */}
-                            <div>
-                                <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                                    Password
-                                </label>
-                                <div className="relative">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                    <input
-                                        id="password"
-                                        type="password"
-                                        autoComplete="new-password"
-                                        required
-                                        suppressHydrationWarning
-                                        minLength={6}
-                                        className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
+                                {/* Role Selection */}
+                                <div>
+                                    <label htmlFor="role" className="block text-sm font-medium text-slate-300 mb-2">
+                                        I am a...
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {['Patient', 'Doctor', 'Receptionist', 'Admin'].map((r) => (
+                                            <label key={r} className={`flex justify-center items-center py-2.5 rounded-xl border cursor-pointer transition-all text-sm ${role === r ? 'bg-teal-500/20 border-teal-500/50 text-teal-300' : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'}`}>
+                                                <input type="radio" className="hidden" name="role" value={r} checked={role === r} onChange={(e) => setRole(e.target.value)} />
+                                                {r}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Password */}
+                                <div>
+                                    <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input
+                                            id="password"
+                                            type="password"
+                                            autoComplete="new-password"
+                                            required
+                                            suppressHydrationWarning
+                                            minLength={6}
+                                            className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-500 rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500/50 transition-all"
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

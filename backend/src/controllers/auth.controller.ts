@@ -10,6 +10,7 @@ const registerSchema = z.object({
     name: z.string().min(2, 'Name must be at least 2 characters').max(100),
     email: z.string().email('Invalid email format'),
     password: z.string().min(6, 'Password must be at least 6 characters'),
+    role: z.enum(['Patient', 'Doctor', 'Receptionist', 'Admin']).optional().default('Patient'),
 });
 
 const loginSchema = z.object({
@@ -29,7 +30,7 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
         });
     }
 
-    const { name, email, password } = parsed.data;
+    const { name, email, password, role } = parsed.data;
 
     try {
         const userExists = await User.findOne({ email }).lean();
@@ -45,17 +46,19 @@ export const registerUser = async (req: AuthRequest, res: Response) => {
             name,
             email,
             password: hashedPassword,
-            role: 'Patient', // SEC-02: Always default to Patient, ignore user-supplied role
+            role: role,
         });
 
-        // Auto-create a Patient profile so the user can book appointments immediately
-        await Patient.create({
-            name,
-            age: 0,
-            gender: 'Other',
-            contact: email, // Default contact to email
-            createdBy: user._id
-        });
+        // Auto-create a Patient profile only if the user is a Patient
+        if (role === 'Patient') {
+            await Patient.create({
+                name,
+                age: 0,
+                gender: 'Other',
+                contact: email, // Default contact to email
+                createdBy: user._id
+            });
+        }
 
         res.status(201).json({
             _id: user._id,
