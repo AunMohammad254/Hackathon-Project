@@ -3,9 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deletePatient = exports.updatePatient = exports.getPatientById = exports.getPatients = exports.createPatientProfile = exports.createPatient = void 0;
+exports.getMyDiagnoses = exports.deletePatient = exports.updatePatient = exports.getPatientById = exports.getPatients = exports.createPatientProfile = exports.createPatient = void 0;
 const zod_1 = require("zod");
 const Patient_1 = __importDefault(require("../models/Patient"));
+const DiagnosisLog_1 = __importDefault(require("../models/DiagnosisLog"));
 const createPatientSchema = zod_1.z.object({
     name: zod_1.z.string().min(2, 'Name must be at least 2 characters').max(100),
     age: zod_1.z.coerce.number().min(0, 'Age must be 0 or greater').max(150),
@@ -174,3 +175,24 @@ const deletePatient = async (req, res) => {
     }
 };
 exports.deletePatient = deletePatient;
+// @desc    Get patient diagnoses
+// @route   GET /api/patients/my-diagnoses
+// @access  Private (Patient)
+const getMyDiagnoses = async (req, res) => {
+    try {
+        const patient = await Patient_1.default.findOne({ createdBy: req.user._id });
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient profile not found' });
+        }
+        const diagnoses = await DiagnosisLog_1.default.find({ patientId: patient._id })
+            .populate('doctorId', 'name')
+            .sort({ createdAt: -1 })
+            .lean();
+        res.json({ success: true, data: diagnoses });
+    }
+    catch (error) {
+        console.error('[Get Patient Diagnoses Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.getMyDiagnoses = getMyDiagnoses;

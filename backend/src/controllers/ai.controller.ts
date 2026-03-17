@@ -358,7 +358,7 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
         }
 
         // Gather history
-        let history = [];
+        let history: { role: string; parts: { text: string }[] }[] = [];
         if (messages && Array.isArray(messages)) {
             // Keep last 10 messages to limit token usage
             history = messages.slice(-10, -1).map(m => ({
