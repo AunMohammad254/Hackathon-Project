@@ -33,6 +33,14 @@ const userSchema = new mongoose_1.default.Schema({
         enum: ['Free', 'Pro'],
         default: 'Free',
     },
+    aiPredictiveGenCount: {
+        type: Number,
+        default: 0,
+    },
+    aiPredictiveGenResetDate: {
+        type: Date,
+        default: Date.now,
+    },
 }, { timestamps: true });
 // PERF-04: Index for role-based queries
 userSchema.index({ role: 1 });

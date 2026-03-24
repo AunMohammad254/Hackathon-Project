@@ -312,19 +312,46 @@ exports.checkDrugInteractions = checkDrugInteractions;
 // ── Health Chatbot (RAG) ──
 const healthChat = async (req, res) => {
     try {
-        const { message } = req.body;
-        if (!message || typeof message !== 'string') {
-            return res.status(400).json({ success: false, message: 'A message string is required' });
+        const { message, messages } = req.body;
+        // If 'message' is present (legacy) use it, else 'messages' array
+        if (!message && (!messages || !Array.isArray(messages))) {
+            return res.status(400).json({ success: false, message: 'A messages array is required' });
         }
-        // SEC-09 FIX: Sanitize user chat message
-        const safeMessage = (0, sanitize_1.sanitizePromptInput)(message, 1000);
+        const currentMessage = message ? (0, sanitize_1.sanitizePromptInput)(message, 1000) : (0, sanitize_1.sanitizePromptInput)(messages[messages.length - 1].content, 1000);
+        // -- PHASE 5: FAQ Mocking --
+        const faqRegex = /book (an )?appointment|how (to|do i) book|opening hours|clinic hours/i;
+        if (faqRegex.test(currentMessage)) {
+            // Check headers to see if we should stream
+            if (req.headers.accept === 'text/event-stream') {
+                res.setHeader('Content-Type', 'text/event-stream');
+                res.setHeader('Cache-Control', 'no-cache');
+                res.setHeader('Connection', 'keep-alive');
+                res.write(`data: ${JSON.stringify({ text: "You can book an appointment by heading over to the Appointments tab and clicking 'Book New Appointment'." })}\n\n`);
+                return res.end();
+            }
+            else {
+                return res.status(200).json({ success: true, reply: "You can book an appointment by heading over to the Appointments tab and clicking 'Book New Appointment'." });
+            }
+        }
+        // Gather history
+        let history = [];
+        if (messages && Array.isArray(messages)) {
+            // Keep last 10 messages to limit token usage
+            history = messages.slice(-10, -1).map(m => ({
+                role: m.role === 'ai' ? 'model' : 'user',
+                parts: [{ text: String(m.content) }]
+            }));
+        }
+        history.push({
+            role: 'user',
+            parts: [{ text: String(currentMessage) }]
+        });
         const patientId = req.user._id;
-        // Prescription & Appointment imported statically at top
         const [prescriptions, appointments] = await Promise.all([
             Prescription_1.default.find({ patientId }).populate('doctorId', 'name').sort({ createdAt: -1 }).limit(10).lean(),
             Appointment_1.default.find({ patientId }).populate('doctorId', 'name').sort({ date: -1 }).limit(10).lean(),
         ]);
-        const prompt = `
+        const systemInstruction = `
       You are a helpful, empathetic AI health assistant for a clinic management system.
       You have access to this patient's medical records. Use them to answer questions accurately.
       
@@ -343,7 +370,6 @@ const healthChat = async (req, res) => {
             date: p.createdAt,
             medicines: p.medicines,
             instructions: p.instructions,
-            aiInsights: p.aiInsights,
         }))) : 'No prescriptions on record.'}
       
       PATIENT'S RECENT APPOINTMENTS:
@@ -352,13 +378,64 @@ const healthChat = async (req, res) => {
             date: a.date,
             status: a.status,
         }))) : 'No appointments on record.'}
-
-      The patient's message is: ${safeMessage}
     `;
-        const reply = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
-        res.status(200).json({ success: true, reply });
+        // We bypass geminiQueue for streaming
+        const client = getGenAI();
+        const model = client.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            systemInstruction
+        });
+        // -- PHASE 4: Safety Settings --
+        const safetySettings = [
+            {
+                category: generative_ai_1.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: generative_ai_1.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: generative_ai_1.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold: generative_ai_1.HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            }
+        ];
+        // Ensure we handle streaming response or standard response based on header
+        const expectsStream = req.headers.accept === 'text/event-stream';
+        if (expectsStream) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+            const resultStream = await model.generateContentStream({
+                contents: history,
+                safetySettings
+            });
+            for await (const chunk of resultStream.stream) {
+                const chunkText = chunk.text();
+                // Check safety blocks inside streaming chunks
+                if (chunk.promptFeedback?.blockReason) {
+                    res.write(`data: ${JSON.stringify({ error: true, text: "I'm sorry, I cannot discuss that." })}\n\n`);
+                    break;
+                }
+                res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+            }
+            return res.end();
+        }
+        else {
+            // Fallback to basic JSON if no stream header
+            const result = await model.generateContent({
+                contents: history,
+                safetySettings
+            });
+            if (result.response.promptFeedback?.blockReason || result.response.candidates?.[0]?.finishReason === generative_ai_1.FinishReason.SAFETY) {
+                return res.status(200).json({ success: true, reply: "I'm sorry, I cannot discuss that." });
+            }
+            return res.status(200).json({ success: true, reply: result.response.text() });
+        }
     }
     catch (error) {
+        console.error('[AI Health Chat Error]', error);
+        // Handle stream error elegantly
+        if (req.headers.accept === 'text/event-stream') {
+            res.write(`data: ${JSON.stringify({ error: true, text: "Connectivity issue. Please try again." })}\n\n`);
+            return res.end();
+        }
         handleAIError(error, res, 'AI Health Chat Error');
     }
 };
@@ -366,44 +443,70 @@ exports.healthChat = healthChat;
 // ── Predictive Analytics ──
 const predictiveAnalytics = async (req, res) => {
     try {
-        // DiagnosisLog & Appointment imported statically at top
+        const user = await User_1.default.findById(req.user._id);
+        if (!user)
+            return res.status(404).json({ success: false, message: 'User not found' });
+        const now = new Date();
+        const resetDate = new Date(user.aiPredictiveGenResetDate || 0);
+        if (now.toDateString() !== resetDate.toDateString()) {
+            user.aiPredictiveGenCount = 0;
+            user.aiPredictiveGenResetDate = now;
+        }
+        const maxLimit = user.subscriptionPlan === 'Pro' ? 20 : 10;
+        if (user.aiPredictiveGenCount >= maxLimit) {
+            return res.status(429).json({
+                success: false,
+                message: `Daily limit reached. You can generate predictive analytics ${maxLimit} times a day on the ${user.subscriptionPlan} plan.`
+            });
+        }
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         const [recentDiagnoses, recentAppointments] = await Promise.all([
-            DiagnosisLog_1.default.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
-            Appointment_1.default.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
+            DiagnosisLog_1.default.find({ createdAt: { $gte: thirtyDaysAgo } }).populate('doctorId', 'name').lean(),
+            Appointment_1.default.find({ createdAt: { $gte: thirtyDaysAgo } }).populate('doctorId', 'name').lean(),
         ]);
         const prompt = `
       You are an AI health analytics assistant. Analyze the following 30-day clinic data and provide predictions.
       
       RECENT DIAGNOSES (${recentDiagnoses.length} total):
-      ${JSON.stringify(recentDiagnoses.map((d) => ({ symptoms: d.symptoms, riskLevel: d.riskLevel, date: d.createdAt })).slice(0, 20))}
+      ${JSON.stringify(recentDiagnoses.map(d => ({ symptoms: d.symptoms, riskLevel: d.riskLevel, date: d.createdAt, doctor: d.doctorId?.name })).slice(0, 50))}
       
       RECENT APPOINTMENTS (${recentAppointments.length} total):
-      ${JSON.stringify(recentAppointments.map((a) => ({ status: a.status, date: a.date })).slice(0, 20))}
+      ${JSON.stringify(recentAppointments.map(a => ({ status: a.status, date: a.date, doctor: a.doctorId?.name })).slice(0, 50))}
 
-      Provide your analysis as JSON:
+      Provide your analysis strictly as JSON matching this format:
       {
         "topConditions": ["condition1", "condition2", "condition3"],
         "patientLoadForecast": "Brief forecast of patient volume for next week",
+        "doctorPerformanceTrends": "Insights on doctor workload and performance trends",
         "trendInsight": "Key trend or insight from the data",
         "recommendation": "One actionable recommendation for clinic management"
       }
       
       Output ONLY valid JSON.
     `;
-        const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
-        const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const client = getGenAI();
+        const model = client.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: "application/json" }
+        });
+        const result = await model.generateContent(prompt);
+        const cleaned = result.response.text().trim();
         try {
             const parsed = JSON.parse(cleaned);
+            user.aiPredictiveGenCount += 1;
+            await user.save();
             res.status(200).json({ success: true, data: parsed });
         }
         catch {
+            user.aiPredictiveGenCount += 1;
+            await user.save();
             res.status(200).json({
                 success: true,
                 data: {
                     topConditions: ['Insufficient data'],
                     patientLoadForecast: 'Not enough data for forecasting yet.',
+                    doctorPerformanceTrends: 'Need more appointment and diagnosis logs to analyze doctor performance.',
                     trendInsight: 'Add more diagnoses to generate insights.',
                     recommendation: 'Continue logging patient visits for accurate predictions.',
                 },

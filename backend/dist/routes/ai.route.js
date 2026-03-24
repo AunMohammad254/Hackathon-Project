@@ -23,7 +23,7 @@ router.post('/explain-prescription', authMiddleware_1.protect, (0, roleMiddlewar
 router.post('/translate-prescription', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), rateLimiter_1.aiRateLimiter, ai_controller_1.translatePrescription);
 router.post('/chat', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), rateLimiter_1.aiRateLimiter, ai_controller_1.healthChat);
 // SaaS-gated endpoints (Pro plan only)
-router.post('/predictive-analytics', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Doctor'), subscriptionMiddleware_1.requireProPlan, rateLimiter_1.aiRateLimiter, ai_controller_1.predictiveAnalytics);
+router.post('/predictive-analytics', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin'), subscriptionMiddleware_1.requireProPlan, rateLimiter_1.aiRateLimiter, ai_controller_1.predictiveAnalytics);
 // Plan management (no rate limit needed)
 router.post('/upgrade-plan', authMiddleware_1.protect, ai_controller_1.upgradePlan);
 exports.default = router;

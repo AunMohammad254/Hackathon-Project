@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FinishReason } from '@google/generative-ai';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { queueGeminiRequest, getQueueStatus, getCooldownRemaining } from '../services/geminiQueue';
 import { sanitizePromptInput, sanitizePromptArray } from '../utils/sanitize';
@@ -333,25 +333,53 @@ export const checkDrugInteractions = async (req: AuthRequest, res: Response) => 
 // ── Health Chatbot (RAG) ──
 export const healthChat = async (req: AuthRequest, res: Response) => {
     try {
-        const { message } = req.body;
+        const { message, messages } = req.body;
 
-        if (!message || typeof message !== 'string') {
-            return res.status(400).json({ success: false, message: 'A message string is required' });
+        // If 'message' is present (legacy) use it, else 'messages' array
+        if (!message && (!messages || !Array.isArray(messages))) {
+            return res.status(400).json({ success: false, message: 'A messages array is required' });
         }
 
-        // SEC-09 FIX: Sanitize user chat message
-        const safeMessage = sanitizePromptInput(message, 1000);
+        const currentMessage = message ? sanitizePromptInput(message, 1000) : sanitizePromptInput(messages[messages.length - 1].content, 1000);
+
+        // -- PHASE 5: FAQ Mocking --
+        const faqRegex = /book (an )?appointment|how (to|do i) book|opening hours|clinic hours/i;
+        if (faqRegex.test(currentMessage)) {
+            // Check headers to see if we should stream
+            if (req.headers.accept === 'text/event-stream') {
+                res.setHeader('Content-Type', 'text/event-stream');
+                res.setHeader('Cache-Control', 'no-cache');
+                res.setHeader('Connection', 'keep-alive');
+                res.write(`data: ${JSON.stringify({ text: "You can book an appointment by heading over to the Appointments tab and clicking 'Book New Appointment'." })}\n\n`);
+                return res.end();
+            } else {
+                return res.status(200).json({ success: true, reply: "You can book an appointment by heading over to the Appointments tab and clicking 'Book New Appointment'." });
+            }
+        }
+
+        // Gather history
+        let history: { role: string; parts: { text: string }[] }[] = [];
+        if (messages && Array.isArray(messages)) {
+            // Keep last 10 messages to limit token usage
+            history = messages.slice(-10, -1).map(m => ({
+                role: m.role === 'ai' ? 'model' : 'user',
+                parts: [{ text: String(m.content) }]
+            }));
+        }
+
+        history.push({
+            role: 'user',
+            parts: [{ text: String(currentMessage) }]
+        });
 
         const patientId = req.user!._id;
-
-        // Prescription & Appointment imported statically at top
 
         const [prescriptions, appointments] = await Promise.all([
             Prescription.find({ patientId }).populate('doctorId', 'name').sort({ createdAt: -1 }).limit(10).lean(),
             Appointment.find({ patientId }).populate('doctorId', 'name').sort({ date: -1 }).limit(10).lean(),
         ]);
 
-        const prompt = `
+        const systemInstruction = `
       You are a helpful, empathetic AI health assistant for a clinic management system.
       You have access to this patient's medical records. Use them to answer questions accurately.
       
@@ -370,7 +398,6 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
             date: p.createdAt,
             medicines: p.medicines,
             instructions: p.instructions,
-            aiInsights: p.aiInsights,
         }))) : 'No prescriptions on record.'}
       
       PATIENT'S RECENT APPOINTMENTS:
@@ -379,13 +406,72 @@ export const healthChat = async (req: AuthRequest, res: Response) => {
             date: a.date,
             status: a.status,
         }))) : 'No appointments on record.'}
-
-      The patient's message is: ${safeMessage}
     `;
 
-        const reply = await queueGeminiRequest(prompt);
-        res.status(200).json({ success: true, reply });
+        // We bypass geminiQueue for streaming
+        const client = getGenAI();
+        const model = client.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            systemInstruction
+        });
+
+        // -- PHASE 4: Safety Settings --
+        const safetySettings = [
+            {
+                category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            },
+            {
+                category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            }
+        ];
+
+        // Ensure we handle streaming response or standard response based on header
+        const expectsStream = req.headers.accept === 'text/event-stream';
+
+        if (expectsStream) {
+            res.setHeader('Content-Type', 'text/event-stream');
+            res.setHeader('Cache-Control', 'no-cache');
+            res.setHeader('Connection', 'keep-alive');
+
+            const resultStream = await model.generateContentStream({
+                contents: history,
+                safetySettings
+            });
+
+            for await (const chunk of resultStream.stream) {
+                const chunkText = chunk.text();
+                // Check safety blocks inside streaming chunks
+                if (chunk.promptFeedback?.blockReason) {
+                     res.write(`data: ${JSON.stringify({ error: true, text: "I'm sorry, I cannot discuss that." })}\n\n`);
+                     break;
+                }
+                res.write(`data: ${JSON.stringify({ text: chunkText })}\n\n`);
+            }
+            return res.end();
+        } else {
+            // Fallback to basic JSON if no stream header
+            const result = await model.generateContent({
+                contents: history,
+                safetySettings
+            });
+
+            if (result.response.promptFeedback?.blockReason || result.response.candidates?.[0]?.finishReason === FinishReason.SAFETY) {
+                return res.status(200).json({ success: true, reply: "I'm sorry, I cannot discuss that." });
+            }
+
+            return res.status(200).json({ success: true, reply: result.response.text() });
+        }
+
     } catch (error: unknown) {
+        console.error('[AI Health Chat Error]', error);
+        
+        // Handle stream error elegantly
+        if (req.headers.accept === 'text/event-stream') {
+             res.write(`data: ${JSON.stringify({ error: true, text: "Connectivity issue. Please try again." })}\n\n`);
+             return res.end();
+        }
         handleAIError(error, res, 'AI Health Chat Error');
     }
 };

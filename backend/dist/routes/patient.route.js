@@ -13,6 +13,8 @@ router.route('/profile')
 router.route('/')
     .post(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.createPatient)
     .get(authMiddleware_1.protect, patient_controller_1.getPatients);
+router.route('/my-diagnoses')
+    .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.getMyDiagnoses);
 router.route('/:id')
     .get(authMiddleware_1.protect, patient_controller_1.getPatientById)
     .put(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.updatePatient)

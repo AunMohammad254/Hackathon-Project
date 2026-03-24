@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
 
-## Getting Started
+# 🏥 Frontend Component
 
-First, run the development server:
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Health%20System%20Frontend&fontSize=50&animation=fadeIn" alt="Header Banner" />
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+**The user-facing portal of our AI-Powered Health Management System, tailored for Patients, Doctors, Receptionists, and Admins.**
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+[![Next.js](https://img.shields.io/badge/Next.js-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+</div>
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+<br/>
 
-To learn more about Next.js, take a look at the following resources:
+## 💻 Tech Stack & Why We Used It
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Technology | Rationale |
+| :--- | :--- |
+| **Next.js (App Router)** | Robust routing, Server-Side Rendering (SSR), and excellent developer experience for SEO-friendly layouts. |
+| **React** | Core component-based UI library, perfect for building reusable pieces like modals and alerts. |
+| **TypeScript** | Ensures type safety across the app, maintaining strict interfaces for medical data to prevent runtime errors. |
+| **Tailwind CSS** | Utility-first framework for rapid, conflict-free, and responsive styling. |
+| **Shadcn UI** | Accessible, beautifully designed, and highly customizable components without heavy npm bloat. |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+<br/>
 
-## Deploy on Vercel
+## 📂 Key Implementations
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+*   🎭 **Role-Based Routing**: Cleanly segregated routes inside `src/app/` (e.g., `/app/patient/dashboard`) ensuring strict access scopes.
+*   🤖 **AI Integrations**: Custom UI components like `SmartDiagnosisModal`, `LabReportAnalyzer`, and `PrescriptionExplainer` built to interface reliably with our AI backend.
+*   🔐 **Context & State Navigation**: `AuthContext` combined with `ProtectedRoute` to handle secure routing and unauthorized redirection.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+<br/>
+
+## 🚀 Getting Started
+
+1. Install dependencies:
+   ```bash
+   npm install
+   # or yarn / pnpm install
+   ```
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
+3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+<br/>
+
+---
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Smilies/Sparkling%20Heart.png" alt="Sparkling Heart" width="25" height="25" />
+  <p><i>The face of an intelligent healthcare system.</i></p>
+</div>
