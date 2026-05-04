@@ -63,89 +63,60 @@ export default function DoctorDashboard() {
     };
 
     return (
-        <ProtectedRoute allowedRoles={["Doctor"]}>
-            <div className="flex h-screen bg-slate-50">
-                <aside className="w-64 bg-teal-900 text-slate-100 flex flex-col shadow-2xl z-10">
-                    <div className="p-6 text-2xl font-bold border-b border-teal-800 flex items-center gap-2">
-                        <Activity className="text-teal-400" />
-                        Doctor Portal
-                    </div>
-                    <nav className="flex-1 p-4 space-y-2 mt-4">
-                        <a href="#" className="flex items-center gap-3 py-3 px-4 rounded-lg bg-teal-800 text-white font-medium transition duration-200 shadow-inner">
-                            <CalendarCheck size={18} />
-                            Waitlist
-                        </a>
-                        <a href="#" className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-teal-800 transition duration-200 text-slate-300">
-                            <Users size={18} />
-                            Directory
-                        </a>
-                    </nav>
-                    <div className="p-4 border-t border-teal-800">
-                        <div className="mb-4 text-sm text-teal-300 px-2">
-                            Dr. <br /><span className="font-semibold text-white block mt-1">{user?.name}</span>
-                        </div>
-                        <Button variant="ghost" className="w-full justify-start text-rose-300 hover:text-rose-400 hover:bg-teal-800 transition-colors" onClick={logout}>
-                            Log Out
-                        </Button>
-                    </div>
-                </aside>
+        <>
+            <header className="mb-8 flex justify-between items-start">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Active Waitlist</h1>
+                    <p className="text-slate-500 mt-1">Select confirmed appointments to begin physical or tele-consultation.</p>
+                </div>
+                <Button
+                    onClick={() => setIsSmartDiagnosisOpen(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 shadow-md transition-all active:scale-95"
+                >
+                    <BrainCircuit size={18} />
+                    Smart Symptom Checker
+                </Button>
+            </header>
 
-                <main className="flex-1 overflow-y-auto p-10">
-                    <header className="mb-8 flex justify-between items-start">
-                        <div>
-                            <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Active Waitlist</h1>
-                            <p className="text-slate-500 mt-1">Select confirmed appointments to begin physical or tele-consultation.</p>
-                        </div>
-                        <Button
-                            onClick={() => setIsSmartDiagnosisOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 shadow-md transition-all active:scale-95"
-                        >
-                            <BrainCircuit size={18} />
-                            Smart Symptom Checker
-                        </Button>
-                    </header>
+            {/* Stats Cards extracted to component */}
+            <DoctorStats 
+                stats={analytics?.stats} 
+                confirmedCount={appointments.filter(a => a.status === 'confirmed').length} 
+            />
 
-                    {/* Stats Cards extracted to component */}
-                    <DoctorStats 
-                        stats={analytics?.stats} 
-                        confirmedCount={appointments.filter(a => a.status === 'confirmed').length} 
-                    />
-
-                    {/* Chart Row */}
-                    <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6 transition-all hover:shadow-md">
-                         <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                             <ActivityIcon className="text-indigo-500" size={20} />
-                             My Monthly Consultations
-                         </h2>
-                         {analytics?.monthlyStats && analytics.monthlyStats.length > 0 ? (
-                             <ResponsiveContainer width="100%" height={260}>
-                                 <BarChart data={analytics.monthlyStats.map((m: { _id: string; count: number }) => ({ month: m._id, consults: m.count }))}>
-                                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                                     <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                                     <Tooltip 
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                        cursor={{ fill: '#f8fafc' }} 
-                                     />
-                                     <Bar dataKey="consults" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                                 </BarChart>
-                             </ResponsiveContainer>
-                         ) : (
-                             <div className="flex flex-col items-center justify-center py-10 text-slate-400">
-                                 <p className="text-center italic">Not enough historical data to map trends.</p>
-                             </div>
-                         )}
-                    </div>
-
-                    {/* Waitlist Table extracted to component */}
-                    <DoctorWaitlist 
-                        appointments={appointments} 
-                        onStartConsult={handleOpenConsultation} 
-                    />
-
-                    <LabReportAnalyzer />
-                </main>
+            {/* Chart Row */}
+            <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6 transition-all hover:shadow-md">
+                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                     <ActivityIcon className="text-indigo-500" size={20} />
+                     My Monthly Consultations
+                 </h2>
+                 {analytics?.monthlyStats && analytics.monthlyStats.length > 0 ? (
+                     <ResponsiveContainer width="100%" height={260}>
+                         <BarChart data={analytics.monthlyStats.map((m: { _id: string; count: number }) => ({ month: m._id, consults: m.count }))}>
+                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                             <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                             <Tooltip 
+                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                cursor={{ fill: '#f8fafc' }} 
+                             />
+                             <Bar dataKey="consults" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                         </BarChart>
+                     </ResponsiveContainer>
+                 ) : (
+                     <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                         <p className="text-center italic">Not enough historical data to map trends.</p>
+                     </div>
+                 )}
             </div>
+
+            {/* Waitlist Table extracted to component */}
+            <DoctorWaitlist 
+                appointments={appointments} 
+                onStartConsult={handleOpenConsultation} 
+            />
+
+            <LabReportAnalyzer />
 
             {/* Consultation Modal extracted to component */}
             <DoctorConsultationModal 
@@ -156,6 +127,6 @@ export default function DoctorDashboard() {
             />
 
             <SmartDiagnosisModal open={isSmartDiagnosisOpen} onOpenChange={setIsSmartDiagnosisOpen} />
-        </ProtectedRoute>
+        </>
     );
 }

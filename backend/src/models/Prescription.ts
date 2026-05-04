@@ -1,4 +1,10 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+import { IPrescription, IMedicine, RiskLevel } from '@ai-clinic/shared';
+
+export interface IPrescriptionDocument extends Omit<IPrescription, '_id' | 'createdAt' | 'updatedAt' | 'patientId' | 'doctorId'>, Document {
+    patientId: mongoose.Types.ObjectId;
+    doctorId: mongoose.Types.ObjectId;
+}
 
 const prescriptionSchema = new mongoose.Schema({
     patientId: {

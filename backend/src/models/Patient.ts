@@ -1,4 +1,9 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+import { IPatient } from '@ai-clinic/shared';
+
+export interface IPatientDocument extends Omit<IPatient, '_id' | 'createdAt' | 'updatedAt' | 'createdBy'>, Document {
+    createdBy: mongoose.Types.ObjectId;
+}
 
 const patientSchema = new mongoose.Schema({
     name: {

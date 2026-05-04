@@ -1,4 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+import { IAppointment, AppointmentStatus } from '@ai-clinic/shared';
+
+export interface IAppointmentDocument extends Omit<IAppointment, '_id' | 'createdAt' | 'updatedAt' | 'patientId' | 'doctorId' | 'date'>, Document {
+    patientId: mongoose.Types.ObjectId;
+    doctorId: mongoose.Types.ObjectId;
+    date: Date;
+}
 
 const appointmentSchema = new mongoose.Schema({
     patientId: {
@@ -21,6 +28,9 @@ const appointmentSchema = new mongoose.Schema({
         default: 'pending',
     },
     reason: {
+        type: String,
+    },
+    invoiceUrl: {
         type: String,
     },
 }, { timestamps: true });

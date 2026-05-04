@@ -46,29 +46,50 @@ export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string
 };
 
 /**
- * Dynamically generates a temporary signed URL for a given prescription file.
+ * Uploads an Invoice PDF buffer to Supabase Storage.
  */
-export const getSignedPrescriptionUrl = async (fileName: string): Promise<string | null> => {
-    if (process.env.NODE_ENV === 'test') {
-        return `https://mock-supabase.com/${fileName}`;
+export const uploadInvoicePDF = async (fileBuffer: Buffer, fileName: string): Promise<string> => {
+    if (process.env.NODE_ENV === 'test') return `mock-url-${fileName}`;
+    try {
+        const { error } = await getSupabase().storage
+            .from('invoices')
+            .upload(fileName, fileBuffer, { contentType: 'application/pdf', upsert: true });
+
+        if (error) {
+            // Fallback to prescriptions bucket if invoices doesn't exist
+            if (error.message.includes('not found')) {
+                return uploadPrescriptionPDF(fileBuffer, fileName);
+            }
+            throw new Error(`Supabase upload failed: ${error.message}`);
+        }
+        return fileName;
+    } catch (error) {
+        console.error('Error uploading invoice:', error);
+        throw error;
     }
+};
+
+/**
+ * Generates a signed URL for an invoice.
+ */
+export const getSignedInvoiceUrl = async (fileName: string): Promise<string | null> => {
+    if (process.env.NODE_ENV === 'test') return `https://mock-supabase.com/${fileName}`;
     try {
         if (!fileName) return null;
-        // If it's already a full HTTP URL (e.g., from old mock data), just return it
         if (fileName.startsWith('http')) return fileName;
 
-        const { data, error } = await getSupabase().storage
-            .from('prescriptions')
-            .createSignedUrl(fileName, 3600); // 1-hour TTL
+        let { data, error } = await getSupabase().storage
+            .from('invoices')
+            .createSignedUrl(fileName, 3600);
 
-        if (error || !data?.signedUrl) {
-            console.error('Supabase Signed URL Error:', error);
-            return null;
+        if (error && error.message.includes('not found')) {
+            return getSignedPrescriptionUrl(fileName);
         }
 
-        return data.signedUrl;
+        return data?.signedUrl || null;
     } catch (error) {
-        console.error('Failed to generate signed url:', error);
+        console.error('Failed to generate signed url for invoice:', error);
         return null;
     }
 };
+

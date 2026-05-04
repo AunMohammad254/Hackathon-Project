@@ -1,5 +1,5 @@
 import express from 'express';
-import { symptomChecker, explainPrescription, analyzeLabReport, translatePrescription, checkDrugInteractions, healthChat, predictiveAnalytics, upgradePlan, aiQueueStatus } from '../controllers/ai.controller';
+import { symptomChecker, explainPrescription, analyzeLabReport, translatePrescription, checkDrugInteractions, healthChat, predictiveAnalytics, upgradePlan, aiQueueStatus, uploadMedicalRecord } from '../controllers/ai.controller';
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 import { requireProPlan } from '../middleware/subscriptionMiddleware';
@@ -15,6 +15,7 @@ router.get('/queue-status', protect, aiQueueStatus);
 // Doctor endpoints
 router.post('/symptom-checker', protect, authorizeRoles('Doctor'), aiRateLimiter, symptomChecker);
 router.post('/analyze-report', protect, authorizeRoles('Doctor'), aiRateLimiter, upload.single('report'), analyzeLabReport);
+router.post('/upload-record', protect, authorizeRoles('Doctor', 'Receptionist', 'Patient'), aiRateLimiter, upload.single('record'), uploadMedicalRecord);
 router.post('/check-interactions', protect, authorizeRoles('Doctor'), aiRateLimiter, checkDrugInteractions);
 
 // Patient endpoints

@@ -6,35 +6,32 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 import {
-    Activity, CalendarCheck, FileText, LogOut, HeartPulse, User, Menu, X, FolderHeart
+    Activity, CalendarCheck, Users, FileText, LogOut, LayoutDashboard, User, Menu, X, FolderHeart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import HealthChatbot from "@/components/patient/HealthChatbot";
 
 const sidebarLinks = [
-    { href: "/patient/dashboard", label: "Overview", icon: HeartPulse },
-    { href: "/patient/appointments", label: "Appointments", icon: CalendarCheck },
-    { href: "/patient/prescriptions", label: "Prescriptions", icon: FileText },
-    { href: "/patient/records", label: "Medical Records", icon: FolderHeart },
-    { href: "/patient/profile", label: "Profile", icon: User },
+    { href: "/doctor/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/doctor/patients", label: "My Patients", icon: Users },
+    { href: "/doctor/appointments", label: "Schedule", icon: CalendarCheck },
+    { href: "/doctor/records", label: "Medical Records", icon: FolderHeart },
+    { href: "/doctor/profile", label: "My Profile", icon: User },
 ];
 
-export default function PatientLayout({ children }: { children: React.ReactNode }) {
+export default function DoctorLayout({ children }: { children: React.ReactNode }) {
     const { user, logout } = useAuth();
     const pathname = usePathname();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-
-
     return (
-        <ProtectedRoute allowedRoles={["Patient"]}>
+        <ProtectedRoute allowedRoles={["Doctor"]}>
             <div className="flex h-screen bg-slate-50 overflow-hidden relative">
 
-                {/* Mobile Header (Hamburger Menu) */}
+                {/* Mobile Header */}
                 <div className="md:hidden absolute top-0 left-0 right-0 h-16 bg-slate-900 flex items-center justify-between px-4 z-20 shadow-md">
                     <div className="text-xl font-bold flex items-center gap-2 text-white">
-                        <Activity className="text-teal-400" size={24} />
+                        <Activity className="text-indigo-400" size={24} />
                         AI Clinic
                     </div>
                     <button
@@ -45,14 +42,6 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                     </button>
                 </div>
 
-                {/* Mobile Sidebar Overlay */}
-                {isSidebarOpen && (
-                    <div
-                        className="fixed inset-0 bg-black/50 z-20 md:hidden"
-                        onClick={() => setIsSidebarOpen(false)}
-                    />
-                )}
-
                 {/* Sidebar */}
                 <aside
                     className={`
@@ -61,10 +50,10 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
                     `}
                 >
-                    <div className="h-16 md:h-auto p-6 md:p-6 text-2xl font-bold border-b border-slate-800 flex items-center gap-2">
-                        <Activity className="text-teal-400 hidden md:block" />
+                    <div className="h-16 md:h-auto p-6 text-2xl font-bold border-b border-slate-800 flex items-center gap-2">
+                        <Activity className="text-indigo-400 hidden md:block" />
                         <span className="hidden md:block">AI Clinic</span>
-                        <span className="md:ml-2 text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded">Patient</span>
+                        <span className="md:ml-2 text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">Doctor</span>
                     </div>
 
                     <nav className="flex-1 p-4 space-y-1.5 mt-2 md:mt-4 overflow-y-auto">
@@ -80,7 +69,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                                         : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                                         }`}
                                 >
-                                    <link.icon size={18} className={isActive ? "text-teal-400" : ""} />
+                                    <link.icon size={18} className={isActive ? "text-indigo-400" : ""} />
                                     {link.label}
                                 </Link>
                             );
@@ -89,8 +78,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
                     <div className="p-4 border-t border-slate-800 bg-slate-900 shrink-0">
                         <div className="mb-4 text-sm text-slate-400 px-2">
-                            Logged in as
-                            <span className="font-semibold text-white block mt-1 truncate">{user?.name}</span>
+                            Doctor Portal
+                            <span className="font-semibold text-white block mt-1 truncate">Dr. {user?.name}</span>
                         </div>
                         <Button
                             variant="ghost"
@@ -104,14 +93,11 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
                 </aside>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-y-auto w-full pt-16 md:pt-0 pb-24 md:pb-10 p-4 sm:p-6 md:p-10 relative z-0">
+                <main className="flex-1 overflow-y-auto w-full pt-16 md:pt-0 p-4 sm:p-6 md:p-10 relative z-0">
                     <div className="max-w-7xl mx-auto">
                         {children}
                     </div>
                 </main>
-
-                {/* AI Health Chatbot — floating on all patient pages */}
-                <HealthChatbot />
             </div>
         </ProtectedRoute>
     );

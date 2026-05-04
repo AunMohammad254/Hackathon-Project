@@ -579,6 +579,59 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// ── Medical Record Upload & OCR ──
+export const uploadMedicalRecord = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No record file uploaded' });
+        }
+
+        const client = getGenAI();
+        const model = client.getGenerativeModel({ 
+            model: 'gemini-1.5-flash', // Use stable flash for OCR
+        });
+
+        const prompt = `
+      You are an expert AI medical record parser. 
+      Analyze the attached medical document and extract the following information in a clear format:
+      1. Patient Name (if present)
+      2. Document Date
+      3. Primary Findings/Diagnoses
+      4. Recommended Next Steps
+      
+      Format the output as a JSON object:
+      {
+        "patientName": "...",
+        "date": "...",
+        "findings": ["...", "..."],
+        "nextSteps": ["...", "..."],
+        "rawText": "full extracted text summary"
+      }
+    `;
+
+        const filePart = {
+            inlineData: {
+                data: req.file.buffer.toString('base64'),
+                mimeType: req.file.mimetype,
+            },
+        };
+
+        const result = await model.generateContent([prompt, filePart]);
+        const responseText = result.response.text();
+        const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+        try {
+            const parsedData = JSON.parse(cleanedText);
+            res.status(200).json({ success: true, data: parsedData });
+        } catch (parseError) {
+            console.error('[OCR Parse Error]', cleanedText);
+            res.status(500).json({ success: false, message: 'Failed to parse AI output' });
+        }
+    } catch (error: unknown) {
+        handleAIError(error, res, 'Medical Record OCR Error');
+    }
+};
+
 // ── Plan Upgrade (SaaS Simulation) ──
 export const upgradePlan = async (req: AuthRequest, res: Response) => {
     try {

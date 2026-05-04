@@ -1,8 +1,12 @@
 import { Response } from 'express';
 import { z } from 'zod';
-import Appointment from '../models/Appointment';
-import Patient from '../models/Patient';
+import Appointment, { IAppointmentDocument } from '../models/Appointment';
+import Patient, { IPatientDocument } from '../models/Patient';
+import User, { IUserDocument } from '../models/User';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { emitToUser, emitToRole } from '../services/socket.service';
+import { generateInvoicePDF } from '../services/invoice.service';
+import { uploadInvoicePDF } from '../services/supabase.service';
 
 const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'] as const;
 
@@ -66,6 +70,17 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         });
 
         const createdAppointment = await appointment.save();
+
+        // Notify Doctor
+        emitToUser(doctorId, 'appointment-created', {
+            appointment: createdAppointment,
+            message: `New appointment scheduled for ${date}`
+        });
+
+        // Notify Admins/Receptionists
+        emitToRole('Admin', 'appointment-created', { appointment: createdAppointment });
+        emitToRole('Receptionist', 'appointment-created', { appointment: createdAppointment });
+
         res.status(201).json({
             success: true,
             appointment: createdAppointment
@@ -180,7 +195,42 @@ export const updateAppointmentStatus = async (req: AuthRequest, res: Response) =
         }
 
         appointment.status = status;
+
+        // Generate Invoice if completed
+        if (status === 'completed' && !appointment.invoiceUrl) {
+            try {
+                const patientData = await Patient.findById(appointment.patientId).lean() as IPatientDocument;
+                const doctorData = await User.findById(appointment.doctorId).lean() as IUserDocument;
+                
+                if (patientData && doctorData) {
+                    const invoiceBuffer = await generateInvoicePDF(appointment as IAppointmentDocument, patientData, doctorData);
+                    const fileName = `invoice-${appointment._id}-${Date.now()}.pdf`;
+                    const invoiceUrl = await uploadInvoicePDF(invoiceBuffer, fileName);
+                    appointment.invoiceUrl = invoiceUrl;
+                }
+            } catch (invoiceErr) {
+                console.error('[Invoice Generation Error]', invoiceErr);
+                // Don't fail the whole request if invoice fails
+            }
+        }
+
         const updatedAppointment = await appointment.save();
+
+        // Notify Patient
+        const patient = await Patient.findById(appointment.patientId).select('createdBy').lean();
+        if (patient) {
+            emitToUser(patient.createdBy.toString(), 'appointment-updated', {
+                appointment: updatedAppointment,
+                message: `Your appointment status has been updated to ${status}`
+            });
+        }
+
+        // Notify Doctor
+        emitToUser(appointment.doctorId.toString(), 'appointment-updated', {
+            appointment: updatedAppointment,
+            message: `Appointment status updated to ${status}`
+        });
+
         res.json(updatedAppointment);
     } catch (error: unknown) {
         console.error('[Update Appointment Status Error]', (error as Error).message);

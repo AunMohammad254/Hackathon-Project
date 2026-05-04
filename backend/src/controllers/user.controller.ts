@@ -25,3 +25,36 @@ export const getDoctors = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ success: false, message: 'Server error fetching doctors' });
     }
 };
+
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+    try {
+        const { name, email } = req.body;
+        const user = await User.findById(req.user!._id);
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        if (name) user.name = name;
+        if (email) user.email = email;
+
+        await user.save();
+
+        res.status(200).json({
+            success: true,
+            message: 'Profile updated successfully',
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            }
+        });
+    } catch (error: unknown) {
+        console.error('[Update Profile Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error updating profile' });
+    }
+};

@@ -2,6 +2,11 @@
     "name": "ai-clinic-management",
     "version": "1.0.0",
     "description": "AI Clinic Management SaaS",
+    "workspaces": [
+        "frontend",
+        "backend",
+        "packages/*"
+    ],
     "scripts": {
         "dev": "node dev.js",
         "build": "node build.js",
@@ -11,6 +16,7 @@
         "test:watch": "bun --cwd backend test --watch"
     },
     "devDependencies": {
+        "@playwright/test": "^1.59.1",
         "@tailwindcss/postcss": "^4.2.4",
         "concurrently": "^9.2.1",
         "tailwindcss": "^4.2.4"

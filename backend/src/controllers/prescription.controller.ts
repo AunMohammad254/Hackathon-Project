@@ -6,6 +6,7 @@ import { generatePrescriptionPDF } from '../services/pdf.service';
 import { uploadPrescriptionPDF, getSignedPrescriptionUrl } from '../services/supabase.service';
 import crypto from 'crypto';
 import { AuthRequest } from '../middleware/authMiddleware';
+import { emitToUser } from '../services/socket.service';
 
 const medicineSchema = z.object({
     name: z.string().min(1, 'Medicine name is required'),
@@ -69,6 +70,14 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
         const signedUrl = await getSignedPrescriptionUrl(fileName);
         const responseData = prescription.toObject();
         responseData.pdfUrl = signedUrl || fileName;
+
+        // Notify Patient
+        if (patient.createdBy) {
+            emitToUser(patient.createdBy.toString(), 'prescription-issued', {
+                prescription: responseData,
+                message: 'A new prescription has been issued for you.'
+            });
+        }
 
         res.status(201).json({
             success: true,

@@ -1,4 +1,9 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+import { IUser, UserRole, UserStatus, SubscriptionPlan } from '@ai-clinic/shared';
+
+export interface IUserDocument extends Omit<IUser, '_id' | 'createdAt' | 'updatedAt' | 'aiPredictiveGenResetDate'>, Document {
+    aiPredictiveGenResetDate: Date;
+}
 
 const userSchema = new mongoose.Schema({
     name: {

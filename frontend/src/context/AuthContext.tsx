@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/services/api";
+import { initSocket, disconnectSocket } from "@/services/socket";
 
 interface User {
     _id: string;
@@ -45,6 +46,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
                 if (res.data) {
                     setUser({ ...res.data, token });
+                    initSocket(token);
                 } else {
                     // Token is invalid or expired, clean up
                     localStorage.removeItem(TOKEN_KEY);
@@ -64,6 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(userData);
         // SEC-05 FIX: Only persist the token, not the full user object
         localStorage.setItem(TOKEN_KEY, userData.token);
+        initSocket(userData.token);
         const routePrefix = userData.role === 'Super Admin' ? 'admin' : userData.role.toLowerCase();
         router.push(`/${routePrefix}/dashboard`);
     };
@@ -71,6 +74,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = () => {
         setUser(null);
         localStorage.removeItem(TOKEN_KEY);
+        disconnectSocket();
         router.push("/login");
     };
 

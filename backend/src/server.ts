@@ -1,3 +1,4 @@
+import http from 'http';
 import express, { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
@@ -15,6 +16,7 @@ import userRoutes from './routes/user.route';
 import doctorRoutes from './routes/doctor.route';
 import { requestLogger } from './middleware/requestLogger';
 import { setupSwagger } from './docs/swagger';
+import { initSocket } from './services/socket.service';
 
 // Load env before anything else (supports both src & dist builds)
 dotenv.config({ path: path.resolve(__dirname, '../.env'), override: true });
@@ -26,6 +28,10 @@ if (!process.env.JWT_SECRET) {
 }
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.io
+initSocket(server);
 
 // Request Logger (INFRA-03)
 app.use(requestLogger);
@@ -108,7 +114,7 @@ const startServer = async () => {
         await mongoose.connect(MONGO_URI);
         console.log('Connected to MongoDB');
 
-        const server = app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
 
@@ -121,11 +127,6 @@ const startServer = async () => {
             }
             isShuttingDown = true;
             console.log(`\n${signal} received. Shutting down server...`);
-
-            // Stop accepting new connections and forcefully close existing ones
-            if ('closeAllConnections' in server) {
-                server.closeAllConnections();
-            }
 
             // Force exit after 3 seconds if graceful shutdown fails
             setTimeout(() => {
