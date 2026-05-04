@@ -21,8 +21,12 @@ export default function Login() {
         try {
             const res = await api.post("/auth/login", { email, password });
             login(res.data);
-        } catch {
-            setError("Unable to connect to server. Please try again.");
+        } catch (err: any) {
+            if (err.response?.data?.message) {
+                setError(err.response.data.message);
+            } else {
+                setError("Unable to connect to server. Please try again.");
+            }
         } finally {
             setLoading(false);
         }

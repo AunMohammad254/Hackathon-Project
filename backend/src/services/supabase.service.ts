@@ -70,6 +70,31 @@ export const uploadInvoicePDF = async (fileBuffer: Buffer, fileName: string): Pr
 };
 
 /**
+ * Generates a signed URL for a prescription.
+ */
+export const getSignedPrescriptionUrl = async (fileName: string): Promise<string | null> => {
+    if (process.env.NODE_ENV === 'test') return `https://mock-supabase.com/${fileName}`;
+    try {
+        if (!fileName) return null;
+        if (fileName.startsWith('http')) return fileName;
+
+        const { data, error } = await getSupabase().storage
+            .from('prescriptions')
+            .createSignedUrl(fileName, 3600);
+
+        if (error) {
+            console.error('Supabase signed URL error:', error);
+            return null;
+        }
+
+        return data?.signedUrl || null;
+    } catch (error) {
+        console.error('Failed to generate signed url for prescription:', error);
+        return null;
+    }
+};
+
+/**
  * Generates a signed URL for an invoice.
  */
 export const getSignedInvoiceUrl = async (fileName: string): Promise<string | null> => {

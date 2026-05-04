@@ -1,5 +1,15 @@
 import express from 'express';
-import { getDashboardStats, getAllUsers, updateUserRole, deleteUser, updateSubscriptionPlan, getPendingUsers, updateUserStatus } from '../controllers/admin.controller';
+import { 
+    getDashboardStats, 
+    getAllUsers, 
+    updateUserRole, 
+    deleteUser, 
+    updateSubscriptionPlan, 
+    getPendingUsers, 
+    updateUserStatus,
+    getAllOrders,
+    getFinancialAnalytics
+} from '../controllers/admin.controller';
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 
@@ -9,6 +19,8 @@ const router = express.Router();
 router.use(protect, authorizeRoles('Admin'));
 
 router.get('/analytics', getDashboardStats);
+router.get('/financials', getFinancialAnalytics);
+router.get('/orders', getAllOrders);
 router.put('/subscription', updateSubscriptionPlan);
 
 // Users management

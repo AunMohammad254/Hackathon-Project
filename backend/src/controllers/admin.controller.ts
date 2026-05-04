@@ -292,6 +292,88 @@ const updateStatusSchema = z.object({
     status: z.enum(['Approved', 'Rejected']),
 });
 
+// @desc    Get all orders (appointments with financials)
+// @route   GET /api/admin/orders
+// @access  Private (Admin)
+export const getAllOrders = async (req: AuthRequest, res: Response) => {
+    try {
+        const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
+        const query: any = {};
+
+        if (status) query.status = status;
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate as string);
+            if (endDate) query.createdAt.$lte = new Date(endDate as string);
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const [orders, total] = await Promise.all([
+            Appointment.find(query)
+                .populate('patientId', 'name contact')
+                .populate('doctorId', 'name')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            Appointment.countDocuments(query),
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                orders,
+                total,
+                page: Number(page),
+                pages: Math.ceil(total / Number(limit)),
+            },
+        });
+    } catch (error: unknown) {
+        console.error('[Get Orders Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// @desc    Get advanced financial analytics
+// @route   GET /api/admin/financials
+// @access  Private (Admin)
+export const getFinancialAnalytics = async (req: AuthRequest, res: Response) => {
+    try {
+        const { timeframe = 'monthly' } = req.query; // daily, monthly, hourly
+        
+        let groupFormat = '%Y-%m';
+        if (timeframe === 'daily') groupFormat = '%Y-%m-%d';
+        if (timeframe === 'hourly') groupFormat = '%Y-%m-%d %H:00';
+
+        const stats = await Appointment.aggregate([
+            { $match: { status: 'completed' } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: groupFormat, date: '$createdAt' } },
+                    revenue: { $sum: '$price' },
+                    orders: { $sum: 1 },
+                },
+            },
+            { $sort: { _id: 1 } },
+        ]);
+
+        const totalRevenue = stats.reduce((acc, curr) => acc + curr.revenue, 0);
+
+        res.json({
+            success: true,
+            data: {
+                totalRevenue,
+                breakdown: stats,
+                timeframe,
+            },
+        });
+    } catch (error: unknown) {
+        console.error('[Financial Analytics Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
 // @desc    Update user status (Approve/Reject)
 // @route   PUT /api/admin/users/:id/status
 // @access  Private (Super Admin)

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
-    LayoutDashboard, ActivitySquare, Users, LogOut
+    LayoutDashboard, ActivitySquare, Users, LogOut,
+    ShoppingBag, DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -12,6 +13,8 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 const sidebarLinks = [
     { href: "/admin/dashboard", label: "Platform Analytics", icon: ActivitySquare },
     { href: "/admin/staff", label: "Manage Staff", icon: Users },
+    { href: "/admin/orders", label: "Real-time Orders", icon: ShoppingBag },
+    { href: "/admin/income", label: "Financial Growth", icon: DollarSign },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

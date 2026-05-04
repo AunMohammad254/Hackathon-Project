@@ -35,6 +35,8 @@ export interface IAppointment {
   date: string;
   status: AppointmentStatus;
   reason?: string;
+  price?: number;
+  invoiceUrl?: string;
   createdAt: string;
   updatedAt: string;
 }

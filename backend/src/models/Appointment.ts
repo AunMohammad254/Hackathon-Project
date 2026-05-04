@@ -30,6 +30,10 @@ const appointmentSchema = new mongoose.Schema({
     reason: {
         type: String,
     },
+    price: {
+        type: Number,
+        default: 500,
+    },
     invoiceUrl: {
         type: String,
     },
