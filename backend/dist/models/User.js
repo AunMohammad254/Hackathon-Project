@@ -44,5 +44,5 @@ const userSchema = new mongoose_1.default.Schema({
 }, { timestamps: true });
 // PERF-04: Index for role-based queries
 userSchema.index({ role: 1 });
-const User = mongoose_1.default.model('User', userSchema);
+const User = mongoose_1.default.models.User || mongoose_1.default.model('User', userSchema);
 exports.default = User;

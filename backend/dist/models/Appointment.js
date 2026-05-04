@@ -24,9 +24,19 @@ const appointmentSchema = new mongoose_1.default.Schema({
         enum: ['pending', 'confirmed', 'completed', 'cancelled'],
         default: 'pending',
     },
+    reason: {
+        type: String,
+    },
+    price: {
+        type: Number,
+        default: 500,
+    },
+    invoiceUrl: {
+        type: String,
+    },
 }, { timestamps: true });
 // PERF-04: Indexes for common query patterns
 appointmentSchema.index({ doctorId: 1, status: 1 });
 appointmentSchema.index({ patientId: 1 });
-const Appointment = mongoose_1.default.model('Appointment', appointmentSchema);
+const Appointment = mongoose_1.default.models.Appointment || mongoose_1.default.model('Appointment', appointmentSchema);
 exports.default = Appointment;

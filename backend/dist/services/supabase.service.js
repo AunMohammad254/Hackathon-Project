@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSignedPrescriptionUrl = exports.uploadPrescriptionPDF = void 0;
+exports.getSignedInvoiceUrl = exports.getSignedPrescriptionUrl = exports.uploadInvoicePDF = exports.uploadPrescriptionPDF = void 0;
 const supabase_js_1 = require("@supabase/supabase-js");
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -19,6 +19,9 @@ const getSupabase = () => {
  * Uploads a PDF buffer to the 'prescriptions' bucket in Supabase Storage.
  */
 const uploadPrescriptionPDF = async (fileBuffer, fileName) => {
+    if (process.env.NODE_ENV === 'test') {
+        return `mock-url-${fileName}`;
+    }
     try {
         const { data, error } = await getSupabase().storage
             .from('prescriptions')
@@ -41,27 +44,78 @@ const uploadPrescriptionPDF = async (fileBuffer, fileName) => {
 };
 exports.uploadPrescriptionPDF = uploadPrescriptionPDF;
 /**
- * Dynamically generates a temporary signed URL for a given prescription file.
+ * Uploads an Invoice PDF buffer to Supabase Storage.
+ */
+const uploadInvoicePDF = async (fileBuffer, fileName) => {
+    if (process.env.NODE_ENV === 'test')
+        return `mock-url-${fileName}`;
+    try {
+        const { error } = await getSupabase().storage
+            .from('invoices')
+            .upload(fileName, fileBuffer, { contentType: 'application/pdf', upsert: true });
+        if (error) {
+            // Fallback to prescriptions bucket if invoices doesn't exist
+            if (error.message.includes('not found')) {
+                return (0, exports.uploadPrescriptionPDF)(fileBuffer, fileName);
+            }
+            throw new Error(`Supabase upload failed: ${error.message}`);
+        }
+        return fileName;
+    }
+    catch (error) {
+        console.error('Error uploading invoice:', error);
+        throw error;
+    }
+};
+exports.uploadInvoicePDF = uploadInvoicePDF;
+/**
+ * Generates a signed URL for a prescription.
  */
 const getSignedPrescriptionUrl = async (fileName) => {
+    if (process.env.NODE_ENV === 'test')
+        return `https://mock-supabase.com/${fileName}`;
     try {
         if (!fileName)
             return null;
-        // If it's already a full HTTP URL (e.g., from old mock data), just return it
         if (fileName.startsWith('http'))
             return fileName;
         const { data, error } = await getSupabase().storage
             .from('prescriptions')
-            .createSignedUrl(fileName, 3600); // 1-hour TTL
-        if (error || !data?.signedUrl) {
-            console.error('Supabase Signed URL Error:', error);
+            .createSignedUrl(fileName, 3600);
+        if (error) {
+            console.error('Supabase signed URL error:', error);
             return null;
         }
-        return data.signedUrl;
+        return data?.signedUrl || null;
     }
     catch (error) {
-        console.error('Failed to generate signed url:', error);
+        console.error('Failed to generate signed url for prescription:', error);
         return null;
     }
 };
 exports.getSignedPrescriptionUrl = getSignedPrescriptionUrl;
+/**
+ * Generates a signed URL for an invoice.
+ */
+const getSignedInvoiceUrl = async (fileName) => {
+    if (process.env.NODE_ENV === 'test')
+        return `https://mock-supabase.com/${fileName}`;
+    try {
+        if (!fileName)
+            return null;
+        if (fileName.startsWith('http'))
+            return fileName;
+        let { data, error } = await getSupabase().storage
+            .from('invoices')
+            .createSignedUrl(fileName, 3600);
+        if (error && error.message.includes('not found')) {
+            return (0, exports.getSignedPrescriptionUrl)(fileName);
+        }
+        return data?.signedUrl || null;
+    }
+    catch (error) {
+        console.error('Failed to generate signed url for invoice:', error);
+        return null;
+    }
+};
+exports.getSignedInvoiceUrl = getSignedInvoiceUrl;

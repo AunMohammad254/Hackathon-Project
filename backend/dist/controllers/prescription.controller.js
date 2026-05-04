@@ -10,6 +10,7 @@ const Patient_1 = __importDefault(require("../models/Patient"));
 const pdf_service_1 = require("../services/pdf.service");
 const supabase_service_1 = require("../services/supabase.service");
 const crypto_1 = __importDefault(require("crypto"));
+const socket_service_1 = require("../services/socket.service");
 const medicineSchema = zod_1.z.object({
     name: zod_1.z.string().min(1, 'Medicine name is required'),
     dosage: zod_1.z.string().min(1, 'Dosage is required'),
@@ -20,7 +21,7 @@ const createPrescriptionSchema = zod_1.z.object({
     medicines: zod_1.z.array(medicineSchema).min(1, 'At least one medicine is required'),
     instructions: zod_1.z.string().optional().default(''),
     aiInsights: zod_1.z.string().optional().default(''),
-    riskLevel: zod_1.z.string().optional().default(''),
+    riskLevel: zod_1.z.string().optional().default('Low'),
 });
 const createPrescription = async (req, res) => {
     const parsed = createPrescriptionSchema.safeParse(req.body);
@@ -63,7 +64,17 @@ const createPrescription = async (req, res) => {
         const signedUrl = await (0, supabase_service_1.getSignedPrescriptionUrl)(fileName);
         const responseData = prescription.toObject();
         responseData.pdfUrl = signedUrl || fileName;
-        res.status(201).json(responseData);
+        // Notify Patient
+        if (patient.createdBy) {
+            (0, socket_service_1.emitToUser)(patient.createdBy.toString(), 'prescription-issued', {
+                prescription: responseData,
+                message: 'A new prescription has been issued for you.'
+            });
+        }
+        res.status(201).json({
+            success: true,
+            prescription: responseData
+        });
     }
     catch (error) {
         console.error('[Create Prescription Error]', error.message);

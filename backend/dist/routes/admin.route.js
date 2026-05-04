@@ -11,6 +11,8 @@ const router = express_1.default.Router();
 // General admin routes require Admin (or Super Admin via inheritance)
 router.use(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin'));
 router.get('/analytics', admin_controller_1.getDashboardStats);
+router.get('/financials', admin_controller_1.getFinancialAnalytics);
+router.get('/orders', admin_controller_1.getAllOrders);
 router.put('/subscription', admin_controller_1.updateSubscriptionPlan);
 // Users management
 router.get('/users', admin_controller_1.getAllUsers);

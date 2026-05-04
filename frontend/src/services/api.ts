@@ -1,6 +1,5 @@
-import axios, { AxiosResponse } from 'axios';
+import axios from 'axios';
 import { toast } from 'sonner';
-import { ApiResponse } from '@ai-clinic/shared';
 
 const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || 'https://ai-clinic-backend.onrender.com/api/v1',

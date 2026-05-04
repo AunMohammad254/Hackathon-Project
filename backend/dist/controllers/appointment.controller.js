@@ -7,11 +7,16 @@ exports.updateAppointmentStatus = exports.getPatientAppointments = exports.getAp
 const zod_1 = require("zod");
 const Appointment_1 = __importDefault(require("../models/Appointment"));
 const Patient_1 = __importDefault(require("../models/Patient"));
+const User_1 = __importDefault(require("../models/User"));
+const socket_service_1 = require("../services/socket.service");
+const invoice_service_1 = require("../services/invoice.service");
+const supabase_service_1 = require("../services/supabase.service");
 const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const createAppointmentSchema = zod_1.z.object({
     doctorId: zod_1.z.string().min(1, 'Doctor ID is required'),
     date: zod_1.z.string().min(1, 'Date is required'),
     patientId: zod_1.z.string().optional(), // Receptionist/Admin can specify; Patients auto-resolve
+    reason: zod_1.z.string().optional(),
 });
 const updateStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(VALID_STATUSES),
@@ -27,7 +32,7 @@ const createAppointment = async (req, res) => {
             errors: parsed.error.flatten().fieldErrors,
         });
     }
-    const { doctorId, date, patientId: bodyPatientId } = parsed.data;
+    const { doctorId, date, patientId: bodyPatientId, reason } = parsed.data;
     try {
         let patientId;
         if (req.user.role === 'Patient') {
@@ -60,9 +65,21 @@ const createAppointment = async (req, res) => {
             doctorId,
             date,
             status: 'pending',
+            reason,
         });
         const createdAppointment = await appointment.save();
-        res.status(201).json(createdAppointment);
+        // Notify Doctor
+        (0, socket_service_1.emitToUser)(doctorId, 'appointment-created', {
+            appointment: createdAppointment,
+            message: `New appointment scheduled for ${date}`
+        });
+        // Notify Admins/Receptionists
+        (0, socket_service_1.emitToRole)('Admin', 'appointment-created', { appointment: createdAppointment });
+        (0, socket_service_1.emitToRole)('Receptionist', 'appointment-created', { appointment: createdAppointment });
+        res.status(201).json({
+            success: true,
+            appointment: createdAppointment
+        });
     }
     catch (error) {
         console.error('[Create Appointment Error]', error.message);
@@ -84,7 +101,7 @@ const getAppointments = async (req, res) => {
             const patientRecords = await Patient_1.default.find({ createdBy: req.user._id }).select('_id').lean();
             const patientIds = patientRecords.map(p => p._id);
             if (patientIds.length === 0) {
-                return res.json([]);
+                return res.json({ success: true, appointments: [] });
             }
             query = { patientId: { $in: patientIds } };
         }
@@ -100,7 +117,7 @@ const getAppointments = async (req, res) => {
             dbQuery = dbQuery.skip(skip).limit(limit);
         }
         const appointments = await dbQuery.lean();
-        res.json(appointments);
+        res.json({ success: true, appointments });
     }
     catch (error) {
         console.error('[Get Appointments Error]', error.message);
@@ -139,7 +156,7 @@ const getPatientAppointments = async (req, res) => {
             dbQuery = dbQuery.skip(skip).limit(limit);
         }
         const appointments = await dbQuery.lean();
-        res.json(appointments);
+        res.json({ success: true, appointments });
     }
     catch (error) {
         console.error('[Get Patient Appointments Error]', error.message);
@@ -162,7 +179,37 @@ const updateAppointmentStatus = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Appointment not found' });
         }
         appointment.status = status;
+        // Generate Invoice if completed
+        if (status === 'completed' && !appointment.invoiceUrl) {
+            try {
+                const patientData = await Patient_1.default.findById(appointment.patientId).lean();
+                const doctorData = await User_1.default.findById(appointment.doctorId).lean();
+                if (patientData && doctorData) {
+                    const invoiceBuffer = await (0, invoice_service_1.generateInvoicePDF)(appointment, patientData, doctorData);
+                    const fileName = `invoice-${appointment._id}-${Date.now()}.pdf`;
+                    const invoiceUrl = await (0, supabase_service_1.uploadInvoicePDF)(invoiceBuffer, fileName);
+                    appointment.invoiceUrl = invoiceUrl;
+                }
+            }
+            catch (invoiceErr) {
+                console.error('[Invoice Generation Error]', invoiceErr);
+                // Don't fail the whole request if invoice fails
+            }
+        }
         const updatedAppointment = await appointment.save();
+        // Notify Patient
+        const patient = await Patient_1.default.findById(appointment.patientId).select('createdBy').lean();
+        if (patient) {
+            (0, socket_service_1.emitToUser)(patient.createdBy.toString(), 'appointment-updated', {
+                appointment: updatedAppointment,
+                message: `Your appointment status has been updated to ${status}`
+            });
+        }
+        // Notify Doctor
+        (0, socket_service_1.emitToUser)(appointment.doctorId.toString(), 'appointment-updated', {
+            appointment: updatedAppointment,
+            message: `Appointment status updated to ${status}`
+        });
         res.json(updatedAppointment);
     }
     catch (error) {

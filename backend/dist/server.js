@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.app = void 0;
+const http_1 = __importDefault(require("http"));
 const express_1 = __importDefault(require("express"));
 const mongoose_1 = __importDefault(require("mongoose"));
 const dotenv_1 = __importDefault(require("dotenv"));
@@ -21,6 +22,7 @@ const user_route_1 = __importDefault(require("./routes/user.route"));
 const doctor_route_1 = __importDefault(require("./routes/doctor.route"));
 const requestLogger_1 = require("./middleware/requestLogger");
 const swagger_1 = require("./docs/swagger");
+const socket_service_1 = require("./services/socket.service");
 // Load env before anything else (supports both src & dist builds)
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env'), override: true });
 // Validate critical env vars on startup
@@ -30,6 +32,9 @@ if (!process.env.JWT_SECRET) {
 }
 const app = (0, express_1.default)();
 exports.app = app;
+const server = http_1.default.createServer(app);
+// Initialize Socket.io
+(0, socket_service_1.initSocket)(server);
 // Request Logger (INFRA-03)
 app.use(requestLogger_1.requestLogger);
 // Security Middleware
@@ -49,7 +54,7 @@ app.use(express_1.default.json({ limit: '10kb' }));
 const MongoStore = require('rate-limit-mongo');
 // Rate limiting on auth routes (prevent brute force)
 const authLimiter = (0, express_rate_limit_1.default)({
-    store: new MongoStore({
+    store: process.env.NODE_ENV === 'test' ? undefined : new MongoStore({
         uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
         expireTimeMs: 15 * 60 * 1000,
         errorHandler: console.error.bind(console, 'rate-limit-mongo')
@@ -60,7 +65,7 @@ const authLimiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
 });
-app.use('/api/v1/auth', authLimiter);
+app.use('/api/v1/auth', process.env.NODE_ENV === 'test' ? (req, res, next) => next() : authLimiter);
 // Health Check Endpoint (INFRA-04)
 app.get('/api/v1/health', (req, res) => {
     res.status(200).json({
@@ -98,7 +103,7 @@ const startServer = async () => {
     try {
         await mongoose_1.default.connect(MONGO_URI);
         console.log('Connected to MongoDB');
-        const server = app.listen(PORT, () => {
+        server.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
         });
         // Graceful shutdown
@@ -110,10 +115,6 @@ const startServer = async () => {
             }
             isShuttingDown = true;
             console.log(`\n${signal} received. Shutting down server...`);
-            // Stop accepting new connections and forcefully close existing ones
-            if ('closeAllConnections' in server) {
-                server.closeAllConnections();
-            }
             // Force exit after 3 seconds if graceful shutdown fails
             setTimeout(() => {
                 console.error('Shutdown timeout, forcing exit...');

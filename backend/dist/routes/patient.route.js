@@ -12,11 +12,11 @@ router.route('/profile')
     .post(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.createPatientProfile);
 router.route('/')
     .post(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.createPatient)
-    .get(authMiddleware_1.protect, patient_controller_1.getPatients);
+    .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.getPatients);
 router.route('/my-diagnoses')
     .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.getMyDiagnoses);
 router.route('/:id')
-    .get(authMiddleware_1.protect, patient_controller_1.getPatientById)
+    .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor', 'Patient'), patient_controller_1.getPatientById)
     .put(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.updatePatient)
     .delete(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin'), patient_controller_1.deletePatient);
 exports.default = router;

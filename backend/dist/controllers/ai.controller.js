@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.upgradePlan = exports.predictiveAnalytics = exports.healthChat = exports.checkDrugInteractions = exports.explainPrescription = exports.translatePrescription = exports.analyzeLabReport = exports.symptomChecker = exports.aiQueueStatus = void 0;
+exports.upgradePlan = exports.uploadMedicalRecord = exports.predictiveAnalytics = exports.healthChat = exports.checkDrugInteractions = exports.explainPrescription = exports.translatePrescription = exports.analyzeLabReport = exports.symptomChecker = exports.aiQueueStatus = void 0;
 const generative_ai_1 = require("@google/generative-ai");
 const geminiQueue_1 = require("../services/geminiQueue");
 const sanitize_1 = require("../utils/sanitize");
@@ -84,7 +84,6 @@ const symptomChecker = async (req, res) => {
             const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
             const parsedData = JSON.parse(cleanedText);
             // Persist to DiagnosisLog
-            // DiagnosisLog imported statically at top
             await DiagnosisLog_1.default.create({
                 patientId: patientId || undefined,
                 symptoms,
@@ -94,17 +93,20 @@ const symptomChecker = async (req, res) => {
                 age: age || undefined,
                 gender: gender || undefined,
             });
-            return res.status(200).json(parsedData);
+            return res.status(200).json({ success: true, data: parsedData });
         }
         catch (aiError) {
             console.error('[AI Symptom Checker Error]', aiError.message);
             // Graceful Fallback
             return res.status(200).json({
+                success: true,
                 error: true,
                 message: "AI service temporarily unavailable. Please proceed with manual diagnosis.",
-                possibleConditions: [],
-                riskLevel: "Medium",
-                suggestedTests: []
+                data: {
+                    possibleConditions: [],
+                    riskLevel: "Medium",
+                    suggestedTests: []
+                }
             });
         }
     }
@@ -121,7 +123,10 @@ const analyzeLabReport = async (req, res) => {
             return res.status(400).json({ success: false, message: 'No report file uploaded' });
         }
         const client = getGenAI();
-        const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = client.getGenerativeModel({
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: "application/json" }
+        });
         const prompt = `
       You are an expert AI medical assistant participating in a specialized diagnosis workflow.
       Analyze the attached medical lab report (image or PDF).
@@ -137,8 +142,6 @@ const analyzeLabReport = async (req, res) => {
         "abnormalities": ["List any flagged or abnormal results here"],
         "secondOpinion": "Your professional assessment of what these results indicate."
       }
-      
-      Ensure your output is ONLY valid JSON.
     `;
         const filePart = {
             inlineData: {
@@ -148,13 +151,12 @@ const analyzeLabReport = async (req, res) => {
         };
         const result = await model.generateContent([prompt, filePart]);
         const responseText = result.response.text();
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
         try {
-            const parsedData = JSON.parse(cleanedText);
+            const parsedData = JSON.parse(responseText);
             res.status(200).json({ success: true, data: parsedData });
         }
         catch (parseError) {
-            console.error('[AI Parse Error] Failed to parse Gemini JSON output', cleanedText);
+            console.error('[AI Parse Error] Failed to parse Gemini JSON output', responseText);
             res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
     }
@@ -194,11 +196,11 @@ const translatePrescription = async (req, res) => {
         ],
         "translatedInstructions": "translated instructions string"
       }
-      
-      Ensure your output is ONLY valid JSON.
     `;
+        // Note: queueGeminiRequest currently doesn't support generationConfig
+        // We'll keep the manual cleaning for queue requests or update the service later.
         const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
         try {
             const parsedData = JSON.parse(cleanedText);
             res.status(200).json({ success: true, data: parsedData, language: targetLanguage });
@@ -236,24 +238,25 @@ const explainPrescription = async (req, res) => {
         "lifestyleAdvice": ["...", "..."],
         "preventiveAdvice": ["...", "..."]
       }
-      
-      DO NOT include markdown formatting like \`\`\`json. Output ONLY the raw JSON object.
     `;
         try {
             const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
             const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
             const parsedData = JSON.parse(cleanedText);
-            return res.status(200).json(parsedData);
+            return res.status(200).json({ success: true, data: parsedData });
         }
         catch (aiError) {
             console.error('[AI Explain Prescription Error]', aiError.message);
             // Graceful Fallback
             return res.status(200).json({
+                success: true,
                 error: true,
                 message: "AI service temporarily unavailable. Please consult your doctor for an explanation.",
-                explanation: "Please consult your doctor for an explanation regarding these medications.",
-                lifestyleAdvice: [],
-                preventiveAdvice: []
+                data: {
+                    explanation: "Please consult your doctor for an explanation regarding these medications.",
+                    lifestyleAdvice: [],
+                    preventiveAdvice: []
+                }
             });
         }
     }
@@ -292,10 +295,9 @@ const checkDrugInteractions = async (req, res) => {
       }
       
       If there are NO known interactions, return safe: true with an empty interactions array.
-      Ensure your output is ONLY valid JSON.
     `;
         const responseText = await (0, geminiQueue_1.queueGeminiRequest)(prompt);
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
         try {
             const parsedData = JSON.parse(cleanedText);
             res.status(200).json({ success: true, data: parsedData });
@@ -518,6 +520,56 @@ const predictiveAnalytics = async (req, res) => {
     }
 };
 exports.predictiveAnalytics = predictiveAnalytics;
+// ── Medical Record Upload & OCR ──
+const uploadMedicalRecord = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'No record file uploaded' });
+        }
+        const client = getGenAI();
+        const model = client.getGenerativeModel({
+            model: 'gemini-1.5-flash', // Use stable flash for OCR
+        });
+        const prompt = `
+      You are an expert AI medical record parser. 
+      Analyze the attached medical document and extract the following information in a clear format:
+      1. Patient Name (if present)
+      2. Document Date
+      3. Primary Findings/Diagnoses
+      4. Recommended Next Steps
+      
+      Format the output as a JSON object:
+      {
+        "patientName": "...",
+        "date": "...",
+        "findings": ["...", "..."],
+        "nextSteps": ["...", "..."],
+        "rawText": "full extracted text summary"
+      }
+    `;
+        const filePart = {
+            inlineData: {
+                data: req.file.buffer.toString('base64'),
+                mimeType: req.file.mimetype,
+            },
+        };
+        const result = await model.generateContent([prompt, filePart]);
+        const responseText = result.response.text();
+        const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+        try {
+            const parsedData = JSON.parse(cleanedText);
+            res.status(200).json({ success: true, data: parsedData });
+        }
+        catch (parseError) {
+            console.error('[OCR Parse Error]', cleanedText);
+            res.status(500).json({ success: false, message: 'Failed to parse AI output' });
+        }
+    }
+    catch (error) {
+        handleAIError(error, res, 'Medical Record OCR Error');
+    }
+};
+exports.uploadMedicalRecord = uploadMedicalRecord;
 // ── Plan Upgrade (SaaS Simulation) ──
 const upgradePlan = async (req, res) => {
     try {

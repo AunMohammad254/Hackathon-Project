@@ -31,6 +31,18 @@ export default function ApprovalsPage() {
     const [error, setError] = useState("");
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
+    const fetchPendingUsers = async () => {
+        try {
+            const res = await api.get("/admin/users/pending");
+            setPendingUsers(res.data.users);
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || "Failed to fetch pending users");
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (!authLoading) {
             if (!user || user.role !== "Super Admin") {
@@ -39,26 +51,17 @@ export default function ApprovalsPage() {
             }
             fetchPendingUsers();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authLoading, router]);
-
-    const fetchPendingUsers = async () => {
-        try {
-            const res = await api.get("/admin/users/pending");
-            setPendingUsers(res.data.users);
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Failed to fetch pending users");
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleAction = async (userId: string, action: "Approved" | "Rejected") => {
         setActionLoading(userId);
         try {
             await api.put(`/admin/users/${userId}/status`, { status: action });
             setPendingUsers((prev) => prev.filter((u) => u._id !== userId));
-        } catch (err: any) {
-            setError(err.response?.data?.message || `Failed to ${action.toLowerCase()} user`);
+        } catch (err: unknown) {
+            const error = err as { response?: { data?: { message?: string } } };
+            setError(error.response?.data?.message || `Failed to ${action.toLowerCase()} user`);
         } finally {
             setActionLoading(null);
         }

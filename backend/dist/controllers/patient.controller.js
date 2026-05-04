@@ -43,7 +43,10 @@ const createPatient = async (req, res) => {
             createdBy: req.user._id,
         });
         const createdPatient = await patient.save();
-        res.status(201).json(createdPatient);
+        res.status(201).json({
+            success: true,
+            patient: createdPatient
+        });
     }
     catch (error) {
         console.error('[Create Patient Error]', error.message);
@@ -74,7 +77,10 @@ const createPatientProfile = async (req, res) => {
             createdBy: req.user._id,
         });
         const createdPatient = await patient.save();
-        res.status(201).json(createdPatient);
+        res.status(201).json({
+            success: true,
+            patient: createdPatient
+        });
     }
     catch (error) {
         console.error('[Create Patient Profile Error]', error.message);
@@ -95,7 +101,10 @@ const getPatients = async (req, res) => {
             dbQuery = dbQuery.skip(skip).limit(limit);
         }
         const patients = await dbQuery.lean();
-        res.json(patients);
+        res.json({
+            success: true,
+            patients
+        });
     }
     catch (error) {
         console.error('[Get Patients Error]', error.message);
@@ -111,12 +120,17 @@ const getPatientById = async (req, res) => {
         const patient = await Patient_1.default.findById(req.params.id)
             .populate('createdBy', 'name email')
             .lean();
-        if (patient) {
-            res.json(patient);
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient not found' });
         }
-        else {
-            res.status(404).json({ success: false, message: 'Patient not found' });
+        // SEC-02 FIX: If the user is a Patient, they can only view their own record
+        if (req.user.role === 'Patient' && patient.createdBy._id.toString() !== req.user._id) {
+            return res.status(403).json({ success: false, message: 'Access denied: you can only view your own profile' });
         }
+        res.json({
+            success: true,
+            patient
+        });
     }
     catch (error) {
         console.error('[Get Patient Error]', error.message);
@@ -149,7 +163,10 @@ const updatePatient = async (req, res) => {
         if (contact !== undefined)
             patient.contact = contact;
         const updatedPatient = await patient.save();
-        res.json(updatedPatient);
+        res.json({
+            success: true,
+            patient: updatedPatient
+        });
     }
     catch (error) {
         console.error('[Update Patient Error]', error.message);
@@ -167,7 +184,7 @@ const deletePatient = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Patient not found' });
         }
         await patient.deleteOne();
-        res.json({ message: 'Patient removed' });
+        res.json({ success: true, message: 'Patient removed' });
     }
     catch (error) {
         console.error('[Delete Patient Error]', error.message);

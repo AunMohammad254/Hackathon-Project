@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import api from "@/services/api";
+
 import { MessageCircle, X, Send, Loader2, Bot, User, Clock, RefreshCw } from "lucide-react";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -130,7 +130,7 @@ export default function HealthChatbot() {
                                         return updated;
                                     });
                                 }
-                            } catch (e) {
+                            } catch {
                                 // Ignore unparseable chunks
                             }
                         }
@@ -138,7 +138,7 @@ export default function HealthChatbot() {
                 }
             }
 
-        } catch (err: unknown) {
+        } catch {
             setMessages(prev => [...prev, {
                 role: "ai",
                 content: "Sorry, I had trouble processing that. Please try again."
@@ -219,12 +219,12 @@ export default function HealthChatbot() {
                                         <ReactMarkdown
                                             remarkPlugins={[remarkGfm]}
                                             components={{
-                                                p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                                                ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
-                                                ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
-                                                li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                                                strong: ({ node, ...props }) => <strong className="font-semibold text-slate-900" {...props} />,
-                                                a: ({ node, ...props }) => <a className="text-teal-600 underline" {...props} />
+                                                p: (props) => <p className="mb-2 last:mb-0" {...props} />,
+                                                ul: (props) => <ul className="list-disc pl-4 mb-2" {...props} />,
+                                                ol: (props) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+                                                li: (props) => <li className="mb-1" {...props} />,
+                                                strong: (props) => <strong className="font-semibold text-slate-900" {...props} />,
+                                                a: (props) => <a className="text-teal-600 underline" {...props} />
                                             }}
                                         >
                                             {msg.content}

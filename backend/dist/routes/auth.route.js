@@ -11,7 +11,7 @@ const router = express_1.default.Router();
 const MongoStore = require('rate-limit-mongo');
 // Strict rate limiting for registration to prevent spam
 const registerLimiter = (0, express_rate_limit_1.default)({
-    store: new MongoStore({
+    store: process.env.NODE_ENV === 'test' ? undefined : new MongoStore({
         uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
         expireTimeMs: 60 * 60 * 1000,
         errorHandler: console.error.bind(console, 'rate-limit-mongo')
@@ -22,7 +22,8 @@ const registerLimiter = (0, express_rate_limit_1.default)({
     standardHeaders: true,
     legacyHeaders: false,
 });
-router.post('/register', registerLimiter, auth_controller_1.registerUser);
+router.post('/register', process.env.NODE_ENV === 'test' ? (req, res, next) => next() : registerLimiter, auth_controller_1.registerUser);
 router.post('/login', auth_controller_1.loginUser);
 router.get('/profile', authMiddleware_1.protect, auth_controller_1.getUserProfile);
+router.get('/me', authMiddleware_1.protect, auth_controller_1.getUserProfile);
 exports.default = router;

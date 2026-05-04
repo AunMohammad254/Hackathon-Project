@@ -17,6 +17,7 @@ router.get('/queue-status', authMiddleware_1.protect, ai_controller_1.aiQueueSta
 // Doctor endpoints
 router.post('/symptom-checker', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, ai_controller_1.symptomChecker);
 router.post('/analyze-report', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, uploadMiddleware_1.upload.single('report'), ai_controller_1.analyzeLabReport);
+router.post('/upload-record', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor', 'Receptionist', 'Patient'), rateLimiter_1.aiRateLimiter, uploadMiddleware_1.upload.single('record'), ai_controller_1.uploadMedicalRecord);
 router.post('/check-interactions', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Doctor'), rateLimiter_1.aiRateLimiter, ai_controller_1.checkDrugInteractions);
 // Patient endpoints
 router.post('/explain-prescription', authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), rateLimiter_1.aiRateLimiter, ai_controller_1.explainPrescription);

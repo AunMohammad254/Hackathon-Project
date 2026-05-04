@@ -30,5 +30,5 @@ const patientSchema = new mongoose_1.default.Schema({
 }, { timestamps: true });
 // PERF-04: Build index for user lookups
 patientSchema.index({ createdBy: 1 });
-const Patient = mongoose_1.default.model('Patient', patientSchema);
+const Patient = mongoose_1.default.models.Patient || mongoose_1.default.model('Patient', patientSchema);
 exports.default = Patient;

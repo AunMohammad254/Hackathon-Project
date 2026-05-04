@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateUserStatus = exports.getPendingUsers = exports.updateSubscriptionPlan = exports.deleteUser = exports.updateUserRole = exports.getAllUsers = exports.getDashboardStats = void 0;
+exports.updateUserStatus = exports.getFinancialAnalytics = exports.getAllOrders = exports.getPendingUsers = exports.updateSubscriptionPlan = exports.deleteUser = exports.updateUserRole = exports.getAllUsers = exports.getDashboardStats = void 0;
 const zod_1 = require("zod");
 const mongoose_1 = __importDefault(require("mongoose"));
 const Patient_1 = __importDefault(require("../models/Patient"));
@@ -24,14 +24,19 @@ const getDashboardStats = async (req, res) => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         // DiagnosisLog imported statically at top
-        const [totalPatients, totalAppointments, totalPrescriptions, totalDoctors, pendingAppointments, confirmedAppointments, completedAppointments, recentAppointments, monthlyTrends, topDiagnoses,] = await Promise.all([
+        const [totalPatients, totalAppointments, totalPrescriptions, totalDoctors, statusBreakdown, recentAppointments, monthlyTrends, topDiagnoses,] = await Promise.all([
             Patient_1.default.countDocuments(),
             Appointment_1.default.countDocuments(),
             Prescription_1.default.countDocuments(),
             User_1.default.countDocuments({ role: 'Doctor' }),
-            Appointment_1.default.countDocuments({ status: 'pending' }),
-            Appointment_1.default.countDocuments({ status: 'confirmed' }),
-            Appointment_1.default.countDocuments({ status: 'completed' }),
+            Appointment_1.default.aggregate([
+                {
+                    $group: {
+                        _id: '$status',
+                        count: { $sum: 1 },
+                    },
+                },
+            ]),
             Appointment_1.default.find()
                 .populate('patientId', 'name contact')
                 .populate('doctorId', 'name')
@@ -62,8 +67,19 @@ const getDashboardStats = async (req, res) => {
                 { $limit: 5 },
             ]),
         ]);
+        // Map status breakdown array to object
+        const breakdown = {
+            pending: 0,
+            confirmed: 0,
+            completed: 0,
+            cancelled: 0,
+        };
+        statusBreakdown.forEach((item) => {
+            if (item._id)
+                breakdown[item._id] = item.count;
+        });
         // Simulated revenue: ₹500 per completed appointment
-        const simulatedRevenue = completedAppointments * 500;
+        const simulatedRevenue = breakdown.completed * 500;
         const responsePayload = {
             success: true,
             stats: {
@@ -72,11 +88,7 @@ const getDashboardStats = async (req, res) => {
                 totalPrescriptions,
                 totalDoctors,
                 simulatedRevenue,
-                breakdown: {
-                    pending: pendingAppointments,
-                    confirmed: confirmedAppointments,
-                    completed: completedAppointments,
-                },
+                breakdown,
             },
             monthlyTrends,
             topDiagnoses,
@@ -252,6 +264,87 @@ exports.getPendingUsers = getPendingUsers;
 const updateStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(['Approved', 'Rejected']),
 });
+// @desc    Get all orders (appointments with financials)
+// @route   GET /api/admin/orders
+// @access  Private (Admin)
+const getAllOrders = async (req, res) => {
+    try {
+        const { status, startDate, endDate, page = 1, limit = 10 } = req.query;
+        const query = {};
+        if (status)
+            query.status = status;
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate)
+                query.createdAt.$gte = new Date(startDate);
+            if (endDate)
+                query.createdAt.$lte = new Date(endDate);
+        }
+        const skip = (Number(page) - 1) * Number(limit);
+        const [orders, total] = await Promise.all([
+            Appointment_1.default.find(query)
+                .populate('patientId', 'name contact')
+                .populate('doctorId', 'name')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit))
+                .lean(),
+            Appointment_1.default.countDocuments(query),
+        ]);
+        res.json({
+            success: true,
+            data: {
+                orders,
+                total,
+                page: Number(page),
+                pages: Math.ceil(total / Number(limit)),
+            },
+        });
+    }
+    catch (error) {
+        console.error('[Get Orders Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.getAllOrders = getAllOrders;
+// @desc    Get advanced financial analytics
+// @route   GET /api/admin/financials
+// @access  Private (Admin)
+const getFinancialAnalytics = async (req, res) => {
+    try {
+        const { timeframe = 'monthly' } = req.query; // daily, monthly, hourly
+        let groupFormat = '%Y-%m';
+        if (timeframe === 'daily')
+            groupFormat = '%Y-%m-%d';
+        if (timeframe === 'hourly')
+            groupFormat = '%Y-%m-%d %H:00';
+        const stats = await Appointment_1.default.aggregate([
+            { $match: { status: 'completed' } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: groupFormat, date: '$createdAt' } },
+                    revenue: { $sum: '$price' },
+                    orders: { $sum: 1 },
+                },
+            },
+            { $sort: { _id: 1 } },
+        ]);
+        const totalRevenue = stats.reduce((acc, curr) => acc + curr.revenue, 0);
+        res.json({
+            success: true,
+            data: {
+                totalRevenue,
+                breakdown: stats,
+                timeframe,
+            },
+        });
+    }
+    catch (error) {
+        console.error('[Financial Analytics Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.getFinancialAnalytics = getFinancialAnalytics;
 // @desc    Update user status (Approve/Reject)
 // @route   PUT /api/admin/users/:id/status
 // @access  Private (Super Admin)

@@ -44,3 +44,16 @@ __tests__/
 testing_overview.md
 GEMINI.md
 test.txt
+
+# Test & coverage artifacts
+playwright-report/
+test-results/
+coverage/
+.nyc_output/
+
+# Build artifacts
+*.tsbuildinfo
+eslint-output.json
+
+# Vercel
+.vercel/

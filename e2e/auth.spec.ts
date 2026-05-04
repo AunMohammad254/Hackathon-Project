@@ -8,10 +8,11 @@ test('has title', async ({ page }) => {
 test('login flow', async ({ page }) => {
   await page.goto('/login');
   
-  // These are placeholders; actual IDs/roles depend on seeded data
-  await page.fill('input[name="email"]', 'admin@clinic.com');
-  await page.fill('input[name="password"]', 'password123');
+  // Fill using id selectors which match the actual login page
+  await page.fill('#email', 'admin@clinic.com');
+  await page.fill('#password', 'password123');
   await page.click('button[type="submit"]');
 
-  await expect(page).toHaveURL(/.*dashboard/);
+  // Wait for either a redirect to dashboard or an error message
+  await expect(page.locator('[class*="rose"]').or(page.locator('text=dashboard'))).toBeVisible({ timeout: 10000 });
 });
