@@ -123,8 +123,9 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
                 medicalHistory: values.medicalHistory,
             });
 
-            if (res.data) {
-                setResult(res.data);
+            if (res.data?.success) {
+                const aiData = res.data.data;
+                setResult(aiData);
                 if (res.data.error) {
                     toast.warning("AI encountered an issue, returning safe fallback.");
                 } else {

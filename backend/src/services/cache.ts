@@ -39,5 +39,5 @@ class TTLCache<T> {
 }
 
 // Global cache instances for specific domains
-export const doctorCache = new TTLCache<any[]>();
+export const doctorCache = new TTLCache<any>();
 export const adminStatsCache = new TTLCache<any>();

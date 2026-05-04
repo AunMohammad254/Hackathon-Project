@@ -29,9 +29,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             totalAppointments,
             totalPrescriptions,
             totalDoctors,
-            pendingAppointments,
-            confirmedAppointments,
-            completedAppointments,
+            statusBreakdown,
             recentAppointments,
             monthlyTrends,
             topDiagnoses,
@@ -40,9 +38,14 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             Appointment.countDocuments(),
             Prescription.countDocuments(),
             User.countDocuments({ role: 'Doctor' }),
-            Appointment.countDocuments({ status: 'pending' }),
-            Appointment.countDocuments({ status: 'confirmed' }),
-            Appointment.countDocuments({ status: 'completed' }),
+            Appointment.aggregate([
+                {
+                    $group: {
+                        _id: '$status',
+                        count: { $sum: 1 },
+                    },
+                },
+            ]),
             Appointment.find()
                 .populate('patientId', 'name contact')
                 .populate('doctorId', 'name')
@@ -74,8 +77,19 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
             ]),
         ]);
 
+        // Map status breakdown array to object
+        const breakdown: Record<string, number> = {
+            pending: 0,
+            confirmed: 0,
+            completed: 0,
+            cancelled: 0,
+        };
+        statusBreakdown.forEach((item: any) => {
+            if (item._id) breakdown[item._id] = item.count;
+        });
+
         // Simulated revenue: ₹500 per completed appointment
-        const simulatedRevenue = completedAppointments * 500;
+        const simulatedRevenue = breakdown.completed * 500;
 
         const responsePayload = {
             success: true,
@@ -85,11 +99,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
                 totalPrescriptions,
                 totalDoctors,
                 simulatedRevenue,
-                breakdown: {
-                    pending: pendingAppointments,
-                    confirmed: confirmedAppointments,
-                    completed: completedAppointments,
-                },
+                breakdown,
             },
             monthlyTrends,
             topDiagnoses,

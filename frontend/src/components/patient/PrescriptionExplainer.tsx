@@ -43,9 +43,11 @@ export function PrescriptionExplainer({ medicines }: PrescriptionExplainerProps)
             const res = await api.post("/ai/explain-prescription", {
                 medicines
             });
-            setExplanation(res.data);
-            if (res.data.error) {
-                toast.warning("AI encountered an issue, showing safe fallback.");
+            if (res.data?.success) {
+                setExplanation(res.data.data);
+                if (res.data.error) {
+                    toast.warning("AI encountered an issue, showing safe fallback.");
+                }
             }
         } catch (error: unknown) {
             console.error(error);

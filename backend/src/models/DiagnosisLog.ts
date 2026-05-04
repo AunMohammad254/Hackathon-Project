@@ -28,5 +28,5 @@ const diagnosisLogSchema = new mongoose.Schema({
 // PERF-04: Index for doctor lookups
 diagnosisLogSchema.index({ doctorId: 1 });
 
-const DiagnosisLog = mongoose.model('DiagnosisLog', diagnosisLogSchema);
+const DiagnosisLog = mongoose.models.DiagnosisLog || mongoose.model('DiagnosisLog', diagnosisLogSchema);
 export default DiagnosisLog;

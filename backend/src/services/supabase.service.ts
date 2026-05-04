@@ -20,6 +20,9 @@ const getSupabase = () => {
  * Uploads a PDF buffer to the 'prescriptions' bucket in Supabase Storage.
  */
 export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string): Promise<string> => {
+    if (process.env.NODE_ENV === 'test') {
+        return `mock-url-${fileName}`;
+    }
     try {
         const { data, error } = await getSupabase().storage
             .from('prescriptions')
@@ -46,6 +49,9 @@ export const uploadPrescriptionPDF = async (fileBuffer: Buffer, fileName: string
  * Dynamically generates a temporary signed URL for a given prescription file.
  */
 export const getSignedPrescriptionUrl = async (fileName: string): Promise<string | null> => {
+    if (process.env.NODE_ENV === 'test') {
+        return `https://mock-supabase.com/${fileName}`;
+    }
     try {
         if (!fileName) return null;
         // If it's already a full HTTP URL (e.g., from old mock data), just return it

@@ -9,4 +9,4 @@ const geminiJobSchema = new mongoose.Schema({
     lastAttemptedAt: { type: Date }
 }, { timestamps: true });
 
-export default mongoose.model('GeminiJob', geminiJobSchema);
+export default mongoose.models.GeminiJob || mongoose.model('GeminiJob', geminiJobSchema);

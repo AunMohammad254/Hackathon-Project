@@ -17,8 +17,9 @@ export const getDoctors = async (req: AuthRequest, res: Response) => {
             .select('name email _id')
             .lean();
             
-        doctorCache.set('all_doctors', doctors, 5 * 60 * 1000); // 5 min TTL
-        res.status(200).json(doctors);
+        const responseData = { success: true, doctors };
+        doctorCache.set('all_doctors', responseData, 5 * 60 * 1000); // 5 min TTL
+        res.status(200).json(responseData);
     } catch (error: unknown) {
         console.error('[Get Doctors Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error fetching doctors' });

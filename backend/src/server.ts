@@ -51,7 +51,7 @@ const MongoStore = require('rate-limit-mongo');
 
 // Rate limiting on auth routes (prevent brute force)
 const authLimiter = rateLimit({
-    store: new MongoStore({
+    store: process.env.NODE_ENV === 'test' ? undefined : new MongoStore({
         uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
         expireTimeMs: 15 * 60 * 1000,
         errorHandler: console.error.bind(console, 'rate-limit-mongo')
@@ -62,7 +62,7 @@ const authLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
 });
-app.use('/api/v1/auth', authLimiter);
+app.use('/api/v1/auth', process.env.NODE_ENV === 'test' ? (req, res, next) => next() : authLimiter);
 
 // Health Check Endpoint (INFRA-04)
 app.get('/api/v1/health', (req: Request, res: Response) => {

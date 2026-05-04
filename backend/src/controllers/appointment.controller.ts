@@ -10,6 +10,7 @@ const createAppointmentSchema = z.object({
     doctorId: z.string().min(1, 'Doctor ID is required'),
     date: z.string().min(1, 'Date is required'),
     patientId: z.string().optional(), // Receptionist/Admin can specify; Patients auto-resolve
+    reason: z.string().optional(),
 });
 
 const updateStatusSchema = z.object({
@@ -28,7 +29,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         });
     }
 
-    const { doctorId, date, patientId: bodyPatientId } = parsed.data;
+    const { doctorId, date, patientId: bodyPatientId, reason } = parsed.data;
 
     try {
         let patientId: string;
@@ -61,10 +62,14 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             doctorId,
             date,
             status: 'pending',
+            reason,
         });
 
         const createdAppointment = await appointment.save();
-        res.status(201).json(createdAppointment);
+        res.status(201).json({
+            success: true,
+            appointment: createdAppointment
+        });
     } catch (error: unknown) {
         console.error('[Create Appointment Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -85,7 +90,7 @@ export const getAppointments = async (req: AuthRequest, res: Response) => {
             const patientRecords = await Patient.find({ createdBy: req.user!._id }).select('_id').lean();
             const patientIds = patientRecords.map(p => p._id);
             if (patientIds.length === 0) {
-                return res.json([]);
+                return res.json({ success: true, appointments: [] });
             }
             query = { patientId: { $in: patientIds } };
         }
@@ -106,7 +111,7 @@ export const getAppointments = async (req: AuthRequest, res: Response) => {
 
         const appointments = await dbQuery.lean();
 
-        res.json(appointments);
+        res.json({ success: true, appointments });
     } catch (error: unknown) {
         console.error('[Get Appointments Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -149,7 +154,7 @@ export const getPatientAppointments = async (req: AuthRequest, res: Response) =>
 
         const appointments = await dbQuery.lean();
 
-        res.json(appointments);
+        res.json({ success: true, appointments });
     } catch (error: unknown) {
         console.error('[Get Patient Appointments Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });

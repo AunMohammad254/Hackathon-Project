@@ -18,7 +18,7 @@ const createPrescriptionSchema = z.object({
     medicines: z.array(medicineSchema).min(1, 'At least one medicine is required'),
     instructions: z.string().optional().default(''),
     aiInsights: z.string().optional().default(''),
-    riskLevel: z.string().optional().default(''),
+    riskLevel: z.string().optional().default('Low'),
 });
 
 export const createPrescription = async (req: AuthRequest, res: Response) => {
@@ -70,7 +70,10 @@ export const createPrescription = async (req: AuthRequest, res: Response) => {
         const responseData = prescription.toObject();
         responseData.pdfUrl = signedUrl || fileName;
 
-        res.status(201).json(responseData);
+        res.status(201).json({
+            success: true,
+            prescription: responseData
+        });
     } catch (error: unknown) {
         console.error('[Create Prescription Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });

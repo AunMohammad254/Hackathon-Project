@@ -92,7 +92,6 @@ export const symptomChecker = async (req: AuthRequest, res: Response) => {
             const parsedData = JSON.parse(cleanedText);
 
             // Persist to DiagnosisLog
-            // DiagnosisLog imported statically at top
             await DiagnosisLog.create({
                 patientId: patientId || undefined,
                 symptoms,
@@ -103,16 +102,19 @@ export const symptomChecker = async (req: AuthRequest, res: Response) => {
                 gender: gender || undefined,
             });
 
-            return res.status(200).json(parsedData);
+            return res.status(200).json({ success: true, data: parsedData });
         } catch (aiError) {
             console.error('[AI Symptom Checker Error]', (aiError as Error).message);
             // Graceful Fallback
             return res.status(200).json({
+                success: true,
                 error: true,
                 message: "AI service temporarily unavailable. Please proceed with manual diagnosis.",
-                possibleConditions: [],
-                riskLevel: "Medium",
-                suggestedTests: []
+                data: {
+                    possibleConditions: [],
+                    riskLevel: "Medium",
+                    suggestedTests: []
+                }
             });
         }
     } catch (error: unknown) {
@@ -129,7 +131,10 @@ export const analyzeLabReport = async (req: AuthRequest, res: Response) => {
         }
 
         const client = getGenAI();
-        const model = client.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const model = client.getGenerativeModel({ 
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: "application/json" }
+        });
 
         const prompt = `
       You are an expert AI medical assistant participating in a specialized diagnosis workflow.
@@ -146,8 +151,6 @@ export const analyzeLabReport = async (req: AuthRequest, res: Response) => {
         "abnormalities": ["List any flagged or abnormal results here"],
         "secondOpinion": "Your professional assessment of what these results indicate."
       }
-      
-      Ensure your output is ONLY valid JSON.
     `;
 
         const filePart = {
@@ -159,13 +162,12 @@ export const analyzeLabReport = async (req: AuthRequest, res: Response) => {
 
         const result = await model.generateContent([prompt, filePart]);
         const responseText = result.response.text();
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
 
         try {
-            const parsedData = JSON.parse(cleanedText);
+            const parsedData = JSON.parse(responseText);
             res.status(200).json({ success: true, data: parsedData });
         } catch (parseError) {
-            console.error('[AI Parse Error] Failed to parse Gemini JSON output', cleanedText);
+            console.error('[AI Parse Error] Failed to parse Gemini JSON output', responseText);
             res.status(500).json({ success: false, message: 'AI generated invalid formatting. Try again.' });
         }
     } catch (error: unknown) {
@@ -206,12 +208,12 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
         ],
         "translatedInstructions": "translated instructions string"
       }
-      
-      Ensure your output is ONLY valid JSON.
     `;
 
+        // Note: queueGeminiRequest currently doesn't support generationConfig
+        // We'll keep the manual cleaning for queue requests or update the service later.
         const responseText = await queueGeminiRequest(prompt);
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
         try {
             const parsedData = JSON.parse(cleanedText);
@@ -254,8 +256,6 @@ export const explainPrescription = async (req: AuthRequest, res: Response) => {
         "lifestyleAdvice": ["...", "..."],
         "preventiveAdvice": ["...", "..."]
       }
-      
-      DO NOT include markdown formatting like \`\`\`json. Output ONLY the raw JSON object.
     `;
 
         try {
@@ -263,16 +263,19 @@ export const explainPrescription = async (req: AuthRequest, res: Response) => {
             const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
             const parsedData = JSON.parse(cleanedText);
 
-            return res.status(200).json(parsedData);
+            return res.status(200).json({ success: true, data: parsedData });
         } catch (aiError) {
             console.error('[AI Explain Prescription Error]', (aiError as Error).message);
             // Graceful Fallback
             return res.status(200).json({
+                success: true,
                 error: true,
                 message: "AI service temporarily unavailable. Please consult your doctor for an explanation.",
-                explanation: "Please consult your doctor for an explanation regarding these medications.",
-                lifestyleAdvice: [],
-                preventiveAdvice: []
+                data: {
+                    explanation: "Please consult your doctor for an explanation regarding these medications.",
+                    lifestyleAdvice: [],
+                    preventiveAdvice: []
+                }
             });
         }
     } catch (error: unknown) {
@@ -313,11 +316,10 @@ export const checkDrugInteractions = async (req: AuthRequest, res: Response) => 
       }
       
       If there are NO known interactions, return safe: true with an empty interactions array.
-      Ensure your output is ONLY valid JSON.
     `;
 
         const responseText = await queueGeminiRequest(prompt);
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
         try {
             const parsedData = JSON.parse(cleanedText);

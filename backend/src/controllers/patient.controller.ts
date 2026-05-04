@@ -46,7 +46,10 @@ export const createPatient = async (req: AuthRequest, res: Response) => {
         });
 
         const createdPatient = await patient.save();
-        res.status(201).json(createdPatient);
+        res.status(201).json({
+            success: true,
+            patient: createdPatient
+        });
     } catch (error: unknown) {
         console.error('[Create Patient Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -80,7 +83,10 @@ export const createPatientProfile = async (req: AuthRequest, res: Response) => {
         });
 
         const createdPatient = await patient.save();
-        res.status(201).json(createdPatient);
+        res.status(201).json({
+            success: true,
+            patient: createdPatient
+        });
     } catch (error: unknown) {
         console.error('[Create Patient Profile Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -102,7 +108,10 @@ export const getPatients = async (req: AuthRequest, res: Response) => {
         }
 
         const patients = await dbQuery.lean();
-        res.json(patients);
+        res.json({
+            success: true,
+            patients
+        });
     } catch (error: unknown) {
         console.error('[Get Patients Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -118,11 +127,19 @@ export const getPatientById = async (req: AuthRequest, res: Response) => {
             .populate('createdBy', 'name email')
             .lean();
 
-        if (patient) {
-            res.json(patient);
-        } else {
-            res.status(404).json({ success: false, message: 'Patient not found' });
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient not found' });
         }
+
+        // SEC-02 FIX: If the user is a Patient, they can only view their own record
+        if (req.user!.role === 'Patient' && patient.createdBy._id.toString() !== req.user!._id) {
+            return res.status(403).json({ success: false, message: 'Access denied: you can only view your own profile' });
+        }
+
+        res.json({
+            success: true,
+            patient
+        });
     } catch (error: unknown) {
         console.error('[Get Patient Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -155,7 +172,10 @@ export const updatePatient = async (req: AuthRequest, res: Response) => {
         if (contact !== undefined) patient.contact = contact;
 
         const updatedPatient = await patient.save();
-        res.json(updatedPatient);
+        res.json({
+            success: true,
+            patient: updatedPatient
+        });
     } catch (error: unknown) {
         console.error('[Update Patient Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
@@ -174,7 +194,7 @@ export const deletePatient = async (req: AuthRequest, res: Response) => {
         }
 
         await patient.deleteOne();
-        res.json({ message: 'Patient removed' });
+        res.json({ success: true, message: 'Patient removed' });
     } catch (error: unknown) {
         console.error('[Delete Patient Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });

@@ -18,13 +18,13 @@ router.route('/profile')
 
 router.route('/')
     .post(protect, authorizeRoles('Admin', 'Receptionist', 'Doctor'), createPatient)
-    .get(protect, getPatients);
+    .get(protect, authorizeRoles('Admin', 'Receptionist', 'Doctor'), getPatients);
 
 router.route('/my-diagnoses')
     .get(protect, authorizeRoles('Patient'), getMyDiagnoses);
 
 router.route('/:id')
-    .get(protect, getPatientById)
+    .get(protect, authorizeRoles('Admin', 'Receptionist', 'Doctor', 'Patient'), getPatientById)
     .put(protect, authorizeRoles('Admin', 'Receptionist', 'Doctor'), updatePatient)
     .delete(protect, authorizeRoles('Admin'), deletePatient);
 

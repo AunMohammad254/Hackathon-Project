@@ -4,32 +4,17 @@ import { useState, useEffect } from "react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Activity, Users, CalendarCheck, FileText, Stethoscope, FileOutput, Loader2, BrainCircuit } from "lucide-react";
+import { Activity, Users, CalendarCheck, BrainCircuit, Activity as ActivityIcon } from "lucide-react";
 import LabReportAnalyzer from "@/components/doctor/LabReportAnalyzer";
-import DrugInteractionAlert from "@/components/doctor/DrugInteractionAlert";
 import { SmartDiagnosisModal } from "@/components/doctor/SmartDiagnosisModal";
+import { DoctorStats } from "@/components/doctor/DoctorStats";
+import { DoctorWaitlist } from "@/components/doctor/DoctorWaitlist";
+import { DoctorConsultationModal } from "@/components/doctor/DoctorConsultationModal";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
 
 interface Appointment {
     _id: string;
@@ -38,157 +23,43 @@ interface Appointment {
     patientId: { _id: string; name: string; age: number; contact: string };
 }
 
-interface Medicine {
-    name: string;
-    dosage: string;
-    duration: string;
-}
-
 export default function DoctorDashboard() {
     const { user, logout } = useAuth();
     const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-    // Consultation State
+    // Consultation Modal State
     const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
-    const [symptomInput, setSymptomInput] = useState("");
-    const [symptoms, setSymptoms] = useState<string[]>([]);
-    const [patientAge, setPatientAge] = useState("");
-    const [patientGender, setPatientGender] = useState("");
-    const [patientHistory, setPatientHistory] = useState("");
-
-    // AI State
-    const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [aiInsights, setAiInsights] = useState("");
-    const [riskLevel, setRiskLevel] = useState("");
-    const [suggestedTests, setSuggestedTests] = useState<string[]>([]);
-
-    // Prescription State
-    const [medicines, setMedicines] = useState<Medicine[]>([]);
-    const [medName, setMedName] = useState("");
-    const [medDosage, setMedDosage] = useState("");
-    const [medDuration, setMedDuration] = useState("");
-    const [instructions, setInstructions] = useState("");
-
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // UI State
     const [isSmartDiagnosisOpen, setIsSmartDiagnosisOpen] = useState(false);
-    const [analytics, setAnalytics] = useState<{ stats?: { dailyAppointments?: number; totalAppointments?: number; totalPrescriptions?: number }; monthlyStats?: { _id: string; count: number }[]; totalCompleted?: number; totalPatients?: number } | null>(null);
+    const [analytics, setAnalytics] = useState<{ 
+        stats?: { dailyAppointments?: number; totalAppointments?: number; totalPrescriptions?: number }; 
+        monthlyStats?: { _id: string; count: number }[]; 
+    } | null>(null);
 
-    const fetchAppointments = async () => {
+    const fetchDashboardData = async () => {
         try {
             const res = await api.get("/appointments");
-            setAppointments(res.data);
+            // Standardized API might return { success: true, appointments: [...] }
+            setAppointments(res.data.success ? res.data.appointments : res.data);
             
             const analyticsRes = await api.get("/doctor/analytics");
             if (analyticsRes.data?.success) {
                 setAnalytics(analyticsRes.data);
             }
         } catch (error) {
-            console.error("Failed to fetch appointments", error);
+            console.error("Failed to fetch dashboard data", error);
         }
     };
 
     useEffect(() => {
-        fetchAppointments();
+        fetchDashboardData();
     }, []);
 
-    const openConsultation = (apt: Appointment) => {
+    const handleOpenConsultation = (apt: Appointment) => {
         setActiveAppointment(apt);
-        setSymptomInput("");
-        setSymptoms([]);
-        setPatientAge(apt.patientId?.age?.toString() || "");
-        setPatientGender("");
-        setPatientHistory("");
-        setAiInsights("");
-        setRiskLevel("");
-        setSuggestedTests([]);
-        setMedicines([]);
-        setInstructions("");
         setIsConsultOpen(true);
-    };
-
-    const handleAddSymptom = () => {
-        if (symptomInput.trim() && !symptoms.includes(symptomInput.trim())) {
-            setSymptoms([...symptoms, symptomInput.trim()]);
-            setSymptomInput("");
-        }
-    };
-
-    const removeSymptom = (sym: string) => setSymptoms(symptoms.filter(s => s !== sym));
-
-    const handleAddMedicine = () => {
-        if (medName && medDosage && medDuration) {
-            setMedicines([...medicines, { name: medName, dosage: medDosage, duration: medDuration }]);
-            setMedName("");
-            setMedDosage("");
-            setMedDuration("");
-        } else {
-            toast.error("Please fill all medicine fields");
-        }
-    };
-
-    const removeMedicine = (idx: number) => setMedicines(medicines.filter((_, i) => i !== idx));
-
-    const analyzeSymptoms = async () => {
-        if (symptoms.length === 0) {
-            toast.error("Please add at least one symptom to analyze.");
-            return;
-        }
-
-        setIsAnalyzing(true);
-        try {
-            const res = await api.post("/ai/diagnose", {
-                symptoms,
-                age: patientAge || undefined,
-                gender: patientGender || undefined,
-                history: patientHistory || undefined,
-            });
-            if (res.data?.success) {
-                setAiInsights(res.data.data.insights);
-                setRiskLevel(res.data.data.riskLevel);
-                setSuggestedTests(res.data.data.suggestedTests || []);
-                toast.success("AI Analysis Complete");
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsAnalyzing(false);
-        }
-    };
-
-    const finalizeConsultation = async () => {
-        if (!activeAppointment) return;
-        if (medicines.length === 0) {
-            toast.error("Please prescribe at least one medicine.");
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            // 1. Generate Prescription (PDF & DB save)
-            const payload = {
-                patientId: activeAppointment.patientId._id,
-                medicines,
-                instructions,
-                aiInsights,
-                riskLevel
-            };
-
-            const presRes = await api.post("/prescriptions", payload);
-
-            // 2. Mark appointment as completed
-            await api.put(`/appointments/${activeAppointment._id}/status`, { status: "completed" });
-
-            toast.success("Consultation finalized & PDF Generated!");
-            window.open(presRes.data.pdfUrl, "_blank"); // Open PDF in new tab
-
-            setIsConsultOpen(false);
-            fetchAppointments();
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsSubmitting(false);
-        }
     };
 
     return (
@@ -200,7 +71,7 @@ export default function DoctorDashboard() {
                         Doctor Portal
                     </div>
                     <nav className="flex-1 p-4 space-y-2 mt-4">
-                        <a href="#" className="flex items-center gap-3 py-3 px-4 rounded-lg bg-teal-800 text-white font-medium transition duration-200">
+                        <a href="#" className="flex items-center gap-3 py-3 px-4 rounded-lg bg-teal-800 text-white font-medium transition duration-200 shadow-inner">
                             <CalendarCheck size={18} />
                             Waitlist
                         </a>
@@ -213,7 +84,7 @@ export default function DoctorDashboard() {
                         <div className="mb-4 text-sm text-teal-300 px-2">
                             Dr. <br /><span className="font-semibold text-white block mt-1">{user?.name}</span>
                         </div>
-                        <Button variant="ghost" className="w-full justify-start text-rose-300 hover:text-rose-400 hover:bg-teal-800" onClick={logout}>
+                        <Button variant="ghost" className="w-full justify-start text-rose-300 hover:text-rose-400 hover:bg-teal-800 transition-colors" onClick={logout}>
                             Log Out
                         </Button>
                     </div>
@@ -227,41 +98,23 @@ export default function DoctorDashboard() {
                         </div>
                         <Button
                             onClick={() => setIsSmartDiagnosisOpen(true)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 shadow-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 shadow-md transition-all active:scale-95"
                         >
                             <BrainCircuit size={18} />
                             Smart Symptom Checker
                         </Button>
                     </header>
 
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-slate-500 mb-2">Daily Appointments</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{analytics?.stats?.dailyAppointments || 0}</h3>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-slate-500 mb-2">Total Historic</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{analytics?.stats?.totalAppointments || 0}</h3>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm border border-blue-200 bg-blue-50/50 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-blue-600 mb-2">Pending Walk-ins</p>
-                            <h3 className="text-3xl font-bold text-blue-700">
-                                {appointments.filter(a => a.status === 'confirmed').length}
-                            </h3>
-                        </div>
-                        <div className="bg-white rounded-xl shadow-sm border border-emerald-200 bg-emerald-50/50 p-6 flex flex-col items-center justify-center">
-                            <p className="text-sm font-medium text-emerald-600 mb-2">Prescriptions Authored</p>
-                            <h3 className="text-3xl font-bold text-emerald-700">
-                                {analytics?.stats?.totalPrescriptions || 0}
-                            </h3>
-                        </div>
-                    </div>
+                    {/* Stats Cards extracted to component */}
+                    <DoctorStats 
+                        stats={analytics?.stats} 
+                        confirmedCount={appointments.filter(a => a.status === 'confirmed').length} 
+                    />
 
                     {/* Chart Row */}
-                    <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                    <div className="mb-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6 transition-all hover:shadow-md">
                          <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                             <Activity className="text-indigo-500" size={20} />
+                             <ActivityIcon className="text-indigo-500" size={20} />
                              My Monthly Consultations
                          </h2>
                          {analytics?.monthlyStats && analytics.monthlyStats.length > 0 ? (
@@ -270,221 +123,37 @@ export default function DoctorDashboard() {
                                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-                                     <Tooltip cursor={{ fill: '#f8fafc' }} />
+                                     <Tooltip 
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        cursor={{ fill: '#f8fafc' }} 
+                                     />
                                      <Bar dataKey="consults" fill="#6366f1" radius={[4, 4, 0, 0]} />
                                  </BarChart>
                              </ResponsiveContainer>
                          ) : (
-                             <p className="text-center text-slate-400 py-10">Not enough historical data to map trends.</p>
+                             <div className="flex flex-col items-center justify-center py-10 text-slate-400">
+                                 <p className="text-center italic">Not enough historical data to map trends.</p>
+                             </div>
                          )}
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                        <Table>
-                            <TableHeader className="bg-slate-50">
-                                <TableRow>
-                                    <TableHead className="font-semibold text-slate-700 pt-4 pb-4">Patient Information</TableHead>
-                                    <TableHead className="font-semibold text-slate-700">Time</TableHead>
-                                    <TableHead className="font-semibold text-slate-700">Status</TableHead>
-                                    <TableHead className="font-semibold text-slate-700 text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {appointments.length > 0 ? (
-                                    appointments.map((apt) => (
-                                        <TableRow key={apt._id} className="hover:bg-slate-50">
-                                            <TableCell className="py-4">
-                                                <div className="font-medium text-slate-900 text-base">{apt.patientId?.name || "Unknown"}</div>
-                                                <div className="text-sm text-slate-500 mt-1">Age: {apt.patientId?.age} • Phone: {apt.patientId?.contact}</div>
-                                            </TableCell>
-                                            <TableCell className="text-slate-600">
-                                                {new Date(apt.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className={`px-3 py-1.5 text-xs font-semibold rounded-full ${apt.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                                    apt.status === 'confirmed' ? 'bg-blue-100 text-blue-700' :
-                                                        'bg-amber-100 text-amber-700'
-                                                    }`}>
-                                                    {apt.status.toUpperCase()}
-                                                </span>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                {apt.status === 'confirmed' ? (
-                                                    <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white shadow-sm flex items-center gap-2" onClick={() => openConsultation(apt)}>
-                                                        <Stethoscope size={16} />
-                                                        Start Consult
-                                                    </Button>
-                                                ) : apt.status === 'completed' ? (
-                                                    <Button variant="ghost" disabled className="text-slate-400">Consulted</Button>
-                                                ) : (
-                                                    <Button variant="outline" disabled className="text-amber-500 border-amber-200 bg-amber-50">Pending Arrival</Button>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="h-32 text-center text-slate-500">
-                                            Queue is completely clear.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
+                    {/* Waitlist Table extracted to component */}
+                    <DoctorWaitlist 
+                        appointments={appointments} 
+                        onStartConsult={handleOpenConsultation} 
+                    />
 
                     <LabReportAnalyzer />
                 </main>
             </div>
 
-            {/* Primary Consultation Modal */}
-            <Dialog open={isConsultOpen} onOpenChange={setIsConsultOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader className="border-b pb-4">
-                        <DialogTitle className="text-2xl flex justify-between items-center text-slate-800">
-                            <span>Consultation: {activeAppointment?.patientId?.name}</span>
-                            <span className="text-sm bg-slate-100 px-3 py-1 rounded-full font-medium text-slate-600">
-                                Age: {activeAppointment?.patientId?.age}
-                            </span>
-                        </DialogTitle>
-                        <DialogDescription>
-                            Record symptoms, generate AI insights, and finalize internal prescription records.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 py-4">
-
-                        {/* Left Column: AI & Symptoms */}
-                        <div className="space-y-6">
-                            <div className="bg-indigo-50/50 border border-indigo-100 p-5 rounded-xl">
-                                <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
-                                    <Activity size={18} className="text-indigo-500" />
-                                    Smart Symptom Checker
-                                </h3>
-
-                                <div className="flex gap-2 mb-3">
-                                    <Input
-                                        placeholder="Enter a symptom (e.g., severe headache)"
-                                        value={symptomInput}
-                                        onChange={(e) => setSymptomInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleAddSymptom()}
-                                        className="bg-white"
-                                    />
-                                    <Button onClick={handleAddSymptom} variant="secondary">Add</Button>
-                                </div>
-
-                                <div className="flex flex-wrap gap-2 mb-4">
-                                    {symptoms.map(sym => (
-                                        <span key={sym} className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm flex items-center gap-1">
-                                            {sym}
-                                            <button onClick={() => removeSymptom(sym)} className="text-indigo-400 hover:text-indigo-800 font-bold ml-1">×</button>
-                                        </span>
-                                    ))}
-                                    {symptoms.length === 0 && <span className="text-sm text-slate-400">No symptoms recorded yet...</span>}
-                                </div>
-
-                                {/* Patient Context Fields */}
-                                <div className="grid grid-cols-2 gap-2 mb-3">
-                                    <Input placeholder="Age" type="number" value={patientAge} onChange={(e) => setPatientAge(e.target.value)} className="bg-white" />
-                                    <select value={patientGender} onChange={(e) => setPatientGender(e.target.value)} className="text-sm border border-slate-200 rounded-md px-3 py-2 bg-white text-slate-700">
-                                        <option value="">Gender</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                                <Input placeholder="Medical history (e.g., diabetes, hypertension)" value={patientHistory} onChange={(e) => setPatientHistory(e.target.value)} className="bg-white mb-3" />
-
-                                <Button
-                                    onClick={analyzeSymptoms}
-                                    disabled={symptoms.length === 0 || isAnalyzing}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white"
-                                >
-                                    {isAnalyzing ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Analyzing via Gemini API...</> : "Generate AI Insights"}
-                                </Button>
-
-                                {aiInsights && (
-                                    <div className="mt-4 p-4 bg-white border border-indigo-100 rounded-lg shadow-sm">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h4 className="font-semibold text-slate-800">Diagnostic Notes:</h4>
-                                            <span className={`px-2 py-1 text-xs font-bold rounded ${riskLevel === 'High' ? 'bg-rose-100 text-rose-700' :
-                                                riskLevel === 'Medium' ? 'bg-amber-100 text-amber-700' :
-                                                    'bg-emerald-100 text-emerald-700'
-                                                }`}>
-                                                {riskLevel} Risk
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-slate-600 leading-relaxed">{aiInsights}</p>
-                                        {suggestedTests.length > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-indigo-100">
-                                                <h5 className="text-xs font-semibold text-indigo-600 uppercase mb-1">Suggested Tests</h5>
-                                                <ul className="text-sm text-slate-600 list-disc list-inside">
-                                                    {suggestedTests.map((t, i) => <li key={i}>{t}</li>)}
-                                                </ul>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Right Column: Prescriptions */}
-                        <div className="space-y-6">
-                            <div className="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
-                                <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                                    <FileText size={18} className="text-teal-500" />
-                                    Prescription Builder
-                                </h3>
-
-                                <div className="space-y-3 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
-                                    <Input placeholder="Medicine Name" value={medName} onChange={(e) => setMedName(e.target.value)} className="bg-white" />
-                                    <div className="flex gap-3">
-                                        <Input placeholder="Dosage (e.g. 1-0-1)" value={medDosage} onChange={(e) => setMedDosage(e.target.value)} className="bg-white" />
-                                        <Input placeholder="Duration (e.g. 5 Days)" value={medDuration} onChange={(e) => setMedDuration(e.target.value)} className="bg-white" />
-                                    </div>
-                                    <Button onClick={handleAddMedicine} variant="outline" className="w-full mt-2">Add Medicine</Button>
-                                </div>
-
-                                {medicines.length > 0 && (
-                                    <ul className="space-y-2 mb-4 max-h-40 overflow-y-auto pr-2">
-                                        {medicines.map((m, i) => (
-                                            <li key={i} className="flex justify-between items-center text-sm p-3 bg-slate-50 border border-slate-100 rounded-lg">
-                                                <div>
-                                                    <span className="font-medium text-slate-800 block">{m.name}</span>
-                                                    <span className="text-slate-500">{m.dosage} for {m.duration}</span>
-                                                </div>
-                                                <button onClick={() => removeMedicine(i)} className="text-rose-400 hover:text-rose-600">Remove</button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-
-                                {medicines.length >= 2 && (
-                                    <DrugInteractionAlert medicines={medicines} />
-                                )}
-
-                                <div className="mt-4">
-                                    <label className="text-sm font-medium text-slate-700 mb-1 block">Special Instructions</label>
-                                    <Input
-                                        placeholder="Dietary rules, next visit planning..."
-                                        value={instructions}
-                                        onChange={(e) => setInstructions(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <Button
-                                onClick={finalizeConsultation}
-                                disabled={isSubmitting || medicines.length === 0}
-                                className="w-full bg-teal-600 hover:bg-teal-700 shadow-md h-12 text-base"
-                            >
-                                {isSubmitting ? <><Loader2 className="animate-spin mr-2 h-5 w-5" /> Generating PDF & Saving...</> : <><FileOutput className="mr-2 h-5 w-5" /> Finalize & Export PDF</>}
-                            </Button>
-
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            {/* Consultation Modal extracted to component */}
+            <DoctorConsultationModal 
+                appointment={activeAppointment}
+                open={isConsultOpen}
+                onOpenChange={setIsConsultOpen}
+                onSuccess={fetchDashboardData}
+            />
 
             <SmartDiagnosisModal open={isSmartDiagnosisOpen} onOpenChange={setIsSmartDiagnosisOpen} />
         </ProtectedRoute>

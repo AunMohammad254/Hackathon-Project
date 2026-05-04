@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { PlusCircle, Search, Users, Calendar, LayoutDashboard, Clock, Loader2 } from "lucide-react";
+import { PlusCircle, Users, Calendar, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,14 +28,9 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { ReceptionistPatientTable } from "@/components/receptionist/ReceptionistPatientTable";
+import { ReceptionistSchedule } from "@/components/receptionist/ReceptionistSchedule";
+import { ReceptionistBookingModal } from "@/components/receptionist/ReceptionistBookingModal";
 
 // Zod schema for patient registration
 const patientSchema = z.object({
@@ -100,7 +95,7 @@ export default function ReceptionistDashboard() {
     const fetchPatients = async () => {
         try {
             const res = await api.get("/patients?limit=100");
-            setPatients(res.data);
+            setPatients(res.data.success ? res.data.patients : res.data);
         } catch (error) {
             console.error("Failed to fetch patients", error);
         }
@@ -108,9 +103,8 @@ export default function ReceptionistDashboard() {
 
     const fetchDoctors = async () => {
         try {
-            // SEC-08 FIX: Use the proper doctors endpoint (not admin-only)
             const res = await api.get("/users/doctors");
-            setDoctors(res.data);
+            setDoctors(res.data.success ? res.data.doctors : res.data);
         } catch (error) {
             console.error("Failed to fetch doctors", error);
         }
@@ -119,8 +113,9 @@ export default function ReceptionistDashboard() {
     const fetchTodaySchedule = async () => {
         try {
             const res = await api.get("/appointments?limit=100");
+            const data = res.data.success ? res.data.appointments : res.data;
             const today = new Date().toISOString().split("T")[0];
-            const todayAppts = res.data.filter((a: Appointment) =>
+            const todayAppts = data.filter((a: Appointment) =>
                 new Date(a.date).toISOString().split("T")[0] === today
             );
             setTodayAppointments(todayAppts);
@@ -144,6 +139,7 @@ export default function ReceptionistDashboard() {
             fetchPatients();
         } catch (error) {
             console.error(error);
+            toast.error("Failed to register patient");
         }
     };
 
@@ -156,10 +152,6 @@ export default function ReceptionistDashboard() {
     };
 
     const submitBooking = async () => {
-        if (!bookingDoctorId || !bookingDate) {
-            toast.error("Please select a doctor and date");
-            return;
-        }
         setIsBooking(true);
         try {
             await api.post("/appointments", {
@@ -172,87 +164,81 @@ export default function ReceptionistDashboard() {
             fetchTodaySchedule();
         } catch (error) {
             console.error(error);
+            toast.error("Failed to book appointment");
         } finally {
             setIsBooking(false);
         }
     };
 
-    const statusColor: Record<string, string> = {
-        pending: "bg-amber-100 text-amber-700",
-        confirmed: "bg-blue-100 text-blue-700",
-        completed: "bg-emerald-100 text-emerald-700",
-        cancelled: "bg-rose-100 text-rose-700",
-    };
-
     return (
         <ProtectedRoute allowedRoles={["Receptionist", "Admin"]}>
-            <div className="flex h-screen bg-slate-50">
-                <aside className="w-64 bg-indigo-900 text-slate-100 flex flex-col shadow-2xl z-10">
-                    <div className="p-6 text-2xl font-bold border-b border-indigo-800 flex items-center gap-2">
+            <div className="flex h-screen bg-slate-50 overflow-hidden">
+                <aside className="w-64 bg-indigo-950 text-slate-100 flex flex-col shadow-2xl z-20">
+                    <div className="p-6 text-2xl font-bold border-b border-indigo-900 flex items-center gap-2">
                         <LayoutDashboard className="text-indigo-400" />
                         Front Desk
                     </div>
                     <nav className="flex-1 p-4 space-y-2 mt-4">
                         <button
                             onClick={() => setActiveTab("patients")}
-                            className={`w-full flex items-center gap-3 py-3 px-4 rounded-lg font-medium transition duration-200 ${activeTab === "patients" ? "bg-indigo-800 text-white" : "text-slate-300 hover:bg-indigo-800"}`}
+                            className={`w-full flex items-center gap-3 py-3.5 px-4 rounded-xl font-bold transition-all duration-200 ${activeTab === "patients" ? "bg-indigo-700 text-white shadow-lg" : "text-slate-400 hover:bg-indigo-900 hover:text-white"}`}
                         >
                             <Users size={18} />
                             Patients
                         </button>
                         <button
                             onClick={() => setActiveTab("schedule")}
-                            className={`w-full flex items-center gap-3 py-3 px-4 rounded-lg font-medium transition duration-200 ${activeTab === "schedule" ? "bg-indigo-800 text-white" : "text-slate-300 hover:bg-indigo-800"}`}
+                            className={`w-full flex items-center gap-3 py-3.5 px-4 rounded-xl font-bold transition-all duration-200 ${activeTab === "schedule" ? "bg-indigo-700 text-white shadow-lg" : "text-slate-400 hover:bg-indigo-900 hover:text-white"}`}
                         >
                             <Calendar size={18} />
-                            Today&apos;s Schedule
+                            Daily Schedule
                         </button>
                     </nav>
-                    <div className="p-4 border-t border-indigo-800">
-                        <div className="mb-4 text-sm text-indigo-300 px-2">
-                            Logged in as: <span className="font-semibold text-white block mt-1">{user?.name}</span>
+                    <div className="p-4 border-t border-indigo-900 bg-indigo-900/50">
+                        <div className="mb-4 text-xs font-bold text-indigo-400 uppercase tracking-widest px-2">
+                            Session: <span className="text-white block mt-1 text-sm normal-case">{user?.name}</span>
                         </div>
-                        <Button variant="ghost" className="w-full justify-start text-rose-300 hover:text-rose-400 hover:bg-indigo-800" onClick={logout}>
-                            Log Out
+                        <Button variant="ghost" className="w-full justify-start text-rose-300 hover:text-rose-400 hover:bg-rose-500/10 font-bold" onClick={logout}>
+                            Sign Out
                         </Button>
                     </div>
                 </aside>
 
-                <main className="flex-1 overflow-y-auto p-10">
+                <main className="flex-1 overflow-y-auto p-10 animate-in fade-in duration-500">
                     {activeTab === "patients" ? (
-                        <>
-                            <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        <div className="space-y-8">
+                            <header className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                                 <div>
                                     <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Patient Management</h1>
-                                    <p className="text-slate-500 mt-1">Register new patients and manage existing records.</p>
+                                    <p className="text-slate-500 mt-1 font-medium italic">Comprehensive registry of all clinic patients.</p>
                                 </div>
 
                                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                                     <DialogTrigger asChild>
-                                        <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-md gap-2">
+                                        <Button className="bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 gap-2 h-11 px-6 font-bold transition-all active:scale-95">
                                             <PlusCircle size={18} />
                                             Register Patient
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent className="sm:max-w-[425px]">
-                                        <DialogHeader>
-                                            <DialogTitle>Register New Patient</DialogTitle>
-                                            <DialogDescription>
-                                                Enter patient details below. Click save when you&apos;re done.
+                                        <DialogHeader className="border-b pb-4">
+                                            <DialogTitle className="text-xl font-bold text-slate-900">Add New Record</DialogTitle>
+                                            <DialogDescription className="font-medium">
+                                                Create a permanent medical profile for a new patient.
                                             </DialogDescription>
                                         </DialogHeader>
 
                                         {/* eslint-disable @typescript-eslint/no-explicit-any */}
                                         <Form {...form}>
-                                            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4 pt-4">
+                                            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-5 pt-4">
                                                 <FormField
                                                     control={form.control as any}
                                                     name="name"
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel>Full Name</FormLabel>
+                                                            <FormLabel className="font-bold text-slate-700">Full Legal Name</FormLabel>
                                                             <FormControl>
-                                                                <Input placeholder="John Doe" {...field} />
+                                                                <Input placeholder="John Doe" {...field} className="h-11 border-slate-200" />
                                                             </FormControl>
                                                             <FormMessage />
                                                         </FormItem>
@@ -264,9 +250,9 @@ export default function ReceptionistDashboard() {
                                                         name="age"
                                                         render={({ field }) => (
                                                             <FormItem className="flex-1">
-                                                                <FormLabel>Age</FormLabel>
+                                                                <FormLabel className="font-bold text-slate-700">Age</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} />
+                                                                    <Input type="number" {...field} className="h-11 border-slate-200" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -277,10 +263,10 @@ export default function ReceptionistDashboard() {
                                                         name="gender"
                                                         render={({ field }) => (
                                                             <FormItem className="flex-1">
-                                                                <FormLabel>Gender</FormLabel>
+                                                                <FormLabel className="font-bold text-slate-700">Gender</FormLabel>
                                                                 <FormControl>
                                                                     <select
-                                                                        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                                                        className="flex h-11 w-full items-center justify-between rounded-md border border-slate-200 bg-background px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                                                         {...field}
                                                                     >
                                                                         <option value="Male">Male</option>
@@ -298,15 +284,15 @@ export default function ReceptionistDashboard() {
                                                     name="contact"
                                                     render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel>Contact Number</FormLabel>
+                                                            <FormLabel className="font-bold text-slate-700">Primary Contact (Phone)</FormLabel>
                                                             <FormControl>
-                                                                <Input placeholder="+1 234 567 890" {...field} />
+                                                                <Input placeholder="+1 234 567 890" {...field} className="h-11 border-slate-200" />
                                                             </FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
-                                                <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700">Save Patient</Button>
+                                                <Button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 text-base font-bold shadow-lg shadow-indigo-500/20 transition-all active:scale-95">Save Medical Profile</Button>
                                             </form>
                                         </Form>
                                         {/* eslint-enable @typescript-eslint/no-explicit-any */}
@@ -314,145 +300,31 @@ export default function ReceptionistDashboard() {
                                 </Dialog>
                             </header>
 
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-                                    <div className="relative w-72">
-                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
-                                        <Input placeholder="Search patients..." className="pl-9 bg-white" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                                        Total Patients: {patients.length}
-                                    </span>
-                                </div>
-
-                                <Table>
-                                    <TableHeader className="bg-slate-50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-slate-700">Name</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">Age & Gender</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">Contact</TableHead>
-                                            <TableHead className="font-semibold text-slate-700">Added By</TableHead>
-                                            <TableHead className="font-semibold text-slate-700 text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {patients.filter(p =>
-                                            p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                            p.contact?.toLowerCase().includes(searchQuery.toLowerCase())
-                                        ).length > 0 ? (
-                                            patients.filter(p =>
-                                                p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                                p.contact?.toLowerCase().includes(searchQuery.toLowerCase())
-                                            ).map((patient) => (
-                                                <TableRow key={patient._id} className="hover:bg-slate-50">
-                                                    <TableCell className="font-medium">{patient.name}</TableCell>
-                                                    <TableCell>{patient.age} • {patient.gender}</TableCell>
-                                                    <TableCell>{patient.contact}</TableCell>
-                                                    <TableCell className="text-sm text-slate-500">{patient.createdBy?.name || "System"}</TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200 hover:bg-indigo-50" onClick={() => openBooking(patient)}>
-                                                            Book Appt
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={5} className="h-48 text-center text-slate-500">
-                                                    No patients found. Click &quot;Register Patient&quot; to add one.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </>
+                            <ReceptionistPatientTable 
+                                patients={patients} 
+                                searchQuery={searchQuery} 
+                                onSearchChange={setSearchQuery} 
+                                onBookAppt={openBooking} 
+                            />
+                        </div>
                     ) : (
-                        /* Today's Schedule Tab */
-                        <>
-                            <header className="mb-8">
-                                <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-3">
-                                    <Calendar className="text-indigo-500" />
-                                    Today&apos;s Schedule
-                                </h1>
-                                <p className="text-slate-500 mt-1">All appointments scheduled for today.</p>
-                            </header>
-
-                            {todayAppointments.length > 0 ? (
-                                <div className="space-y-3">
-                                    {todayAppointments.map((apt) => (
-                                        <div key={apt._id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between hover:shadow-md transition-shadow">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold">
-                                                    {apt.patientId?.name?.charAt(0) || "P"}
-                                                </div>
-                                                <div>
-                                                    <h3 className="font-semibold text-slate-800">{apt.patientId?.name || "Unknown Patient"}</h3>
-                                                    <p className="text-sm text-slate-500">
-                                                        <Clock size={12} className="inline mr-1" />
-                                                        {new Date(apt.date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                                        {apt.doctorId?.name && <span className="ml-2">• Dr. {apt.doctorId.name}</span>}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <span className={`px-3 py-1 text-xs font-bold rounded-full capitalize ${statusColor[apt.status] || "bg-slate-100 text-slate-600"}`}>
-                                                {apt.status}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-16 text-center">
-                                    <Calendar className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-                                    <h3 className="text-lg font-medium text-slate-900">No appointments today</h3>
-                                    <p className="mt-1 text-slate-500 text-sm">Book appointments from the Patients tab.</p>
-                                </div>
-                            )}
-                        </>
+                        <ReceptionistSchedule appointments={todayAppointments} />
                     )}
                 </main>
 
-                {/* Booking Dialog */}
-                <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Book Appointment</DialogTitle>
-                            <DialogDescription>
-                                Booking for <span className="font-semibold text-slate-800">{bookingPatientName}</span>
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 pt-4">
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 mb-1 block">Doctor</label>
-                                <select
-                                    value={bookingDoctorId}
-                                    onChange={(e) => setBookingDoctorId(e.target.value)}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                >
-                                    <option value="">Select a doctor...</option>
-                                    {doctors.map((doc) => (
-                                        <option key={doc._id} value={doc._id}>Dr. {doc.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-sm font-medium text-slate-700 mb-1 block">Date & Time</label>
-                                <Input
-                                    type="datetime-local"
-                                    value={bookingDate}
-                                    onChange={(e) => setBookingDate(e.target.value)}
-                                />
-                            </div>
-                            <Button
-                                className="w-full bg-indigo-600 hover:bg-indigo-700"
-                                onClick={submitBooking}
-                                disabled={isBooking}
-                            >
-                                {isBooking ? <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Booking...</> : "Confirm Booking"}
-                            </Button>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                {/* Booking Dialog extracted */}
+                <ReceptionistBookingModal 
+                    open={isBookingOpen}
+                    onOpenChange={setIsBookingOpen}
+                    patientName={bookingPatientName}
+                    doctors={doctors}
+                    doctorId={bookingDoctorId}
+                    onDoctorIdChange={setBookingDoctorId}
+                    date={bookingDate}
+                    onDateChange={setBookingDate}
+                    isBooking={isBooking}
+                    onConfirm={submitBooking}
+                />
             </div>
         </ProtectedRoute>
     );
