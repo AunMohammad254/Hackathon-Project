@@ -5,11 +5,8 @@ import {
     Users, 
     Search, 
     UserPlus, 
-    MoreVertical, 
     Mail, 
     Phone, 
-    Calendar,
-    ArrowUpRight,
     Loader2,
     Edit,
     Trash2,
@@ -47,10 +44,6 @@ export default function ReceptionistPatientsPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
 
-    useEffect(() => {
-        fetchPatients();
-    }, []);
-
     const fetchPatients = async () => {
         try {
             const res = await api.get("/patients");
@@ -64,6 +57,11 @@ export default function ReceptionistPatientsPage() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchPatients();
+    }, []);
 
     const filteredPatients = patients.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

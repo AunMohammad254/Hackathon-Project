@@ -83,14 +83,6 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
         resolver: zodResolver(formSchema),
     });
 
-    useEffect(() => {
-        if (open) {
-            fetchDoctors();
-            form.reset();
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
-
     const fetchDoctors = async () => {
         setLoadingDoctors(true);
         try {
@@ -103,6 +95,15 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
             setLoadingDoctors(false);
         }
     };
+
+    useEffect(() => {
+        if (open) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            fetchDoctors();
+            form.reset();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const onSubmit = async (values: z.infer<typeof formSchema>) => {
         setIsSubmitting(true);

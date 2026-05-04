@@ -22,8 +22,8 @@ export default function NotFound() {
         Oops! Page not found
       </h2>
       <p className="text-slate-500 max-w-md text-lg mb-10 leading-relaxed">
-        It seems like you've wandered into an uncharted part of the clinic. 
-        Don't worry, even the best doctors lose their way sometimes!
+        It seems like you&apos;ve wandered into an uncharted part of the clinic. 
+        Don&apos;t worry, even the best doctors lose their way sometimes!
       </p>
 
       <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">

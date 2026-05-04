@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 import {
-    Activity, CalendarCheck, Users, LogOut, LayoutDashboard, User, Menu, X, ClipboardList
+    Activity, CalendarCheck, Users, LogOut, LayoutDashboard, User, Menu, X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ProtectedRoute from "@/components/ProtectedRoute";

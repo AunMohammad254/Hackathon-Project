@@ -82,9 +82,10 @@ export default function AdminDashboard() {
                 setAiData(res.data.data);
                 toast.success("AI Predictive Analytics generated successfully!");
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Failed to generate AI predictive analytics", error);
-            const msg = error.response?.data?.message || "Failed to generate analytics";
+            const axiosErr = error as { response?: { data?: { message?: string } } };
+            const msg = axiosErr.response?.data?.message || "Failed to generate analytics";
             toast.error(msg);
         } finally {
             setAiLoading(false);

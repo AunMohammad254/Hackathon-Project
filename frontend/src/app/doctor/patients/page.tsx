@@ -7,8 +7,7 @@ import {
     UserPlus, 
     MoreVertical, 
     Mail, 
-    Phone, 
-    Calendar,
+    Phone,
     ArrowUpRight,
     Loader2
 } from "lucide-react";
@@ -36,23 +35,23 @@ export default function DoctorPatientsPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
 
-    useEffect(() => {
-        fetchPatients();
-    }, []);
-
     const fetchPatients = async () => {
         try {
             const res = await api.get("/patients");
             if (res.data.success) {
                 setPatients(res.data.patients);
             }
-        } catch (error) {
-            console.error(error);
+        } catch {
             toast.error("Failed to fetch patients");
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchPatients();
+    }, []);
 
     const filteredPatients = patients.filter(p => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

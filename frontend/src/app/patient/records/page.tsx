@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { 
     FileUp, 
-    Search, 
     FileText, 
     ShieldCheck, 
     Loader2, 
@@ -24,9 +23,17 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 
+interface UploadResult {
+    patientName?: string;
+    date?: string;
+    findings: string[];
+    nextSteps: string[];
+    rawText: string;
+}
+
 export default function MedicalRecordsPage() {
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadResult, setUploadResult] = useState<any>(null);
+    const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -224,7 +231,7 @@ export default function MedicalRecordsPage() {
                                 <div className="space-y-4 pt-6 border-t border-slate-100">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Raw Text Summary</h3>
                                     <p className="text-sm text-slate-500 leading-relaxed italic bg-slate-50 p-4 rounded-lg border border-slate-100">
-                                        "{uploadResult.rawText}"
+                                        &quot;{uploadResult.rawText}&quot;
                                     </p>
                                 </div>
                             </CardContent>

@@ -75,7 +75,7 @@ export function AdminAiAnalytics({ aiData, aiLoading, onGenerate }: AdminAiAnaly
                         <Sparkles className="w-12 h-12 text-indigo-500/50 mx-auto mb-4" />
                         <p className="text-indigo-200 text-lg mb-2 font-medium">Ready to analyze your clinic data?</p>
                         <p className="text-indigo-400/80 max-w-md mx-auto text-sm">
-                            Click "Generate Insight" to use Gemini AI to forecast patient load, track doctor performance, and spot emerging health conditions.
+                            Click &quot;Generate Insight&quot; to use Gemini AI to forecast patient load, track doctor performance, and spot emerging health conditions.
                         </p>
                     </div>
                 )}

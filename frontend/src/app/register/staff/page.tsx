@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 import api from "@/services/api";
 import Link from "next/link";
 import { Activity, ArrowLeft, Loader2, Mail, Lock, User, ShieldCheck } from "lucide-react";
@@ -61,8 +60,9 @@ export default function StaffRegister() {
                 setEmail("");
                 setPassword("");
             }
-        } catch (err: any) {
-            setError(err.response?.data?.message || "Unable to connect to server. Please try again.");
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            setError(axiosErr.response?.data?.message || "Unable to connect to server. Please try again.");
         } finally {
             setLoading(false);
         }

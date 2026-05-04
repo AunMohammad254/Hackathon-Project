@@ -7,7 +7,6 @@ import {
 
 const PIE_COLORS = ["#f59e0b", "#3b82f6", "#10b981"];
 
-interface Trend { _id: string; count: number; }
 
 interface AdminChartsProps {
     pieData: { name: string; value: number }[];

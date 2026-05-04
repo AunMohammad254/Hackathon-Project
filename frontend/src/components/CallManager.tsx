@@ -4,12 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { TeleConsultation } from './TeleConsultation';
 
 export function CallManager() {
-  const [callData, setCallData] = useState<{ from: string; offer: any } | null>(null);
+  const [callData, setCallData] = useState<{ from: string; offer: RTCSessionDescriptionInit } | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    const handleIncomingCall = (event: any) => {
-      setCallData(event.detail);
+    const handleIncomingCall = (event: Event) => {
+      const customEvent = event as CustomEvent<{ from: string; offer: RTCSessionDescriptionInit }>;
+      setCallData(customEvent.detail);
       setIsOpen(true);
     };
 

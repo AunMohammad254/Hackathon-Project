@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import api from "@/services/api";
 import { 
     ShoppingBag, Search, Filter, Calendar, 
-    ArrowUpDown, Loader2, Download, Eye,
+    Loader2, Download, Eye,
     TrendingUp, Clock, CheckCircle2, XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,7 @@ export default function AdminOrders() {
     }, [statusFilter, timeframe, page]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchOrders();
     }, [fetchOrders]);
 

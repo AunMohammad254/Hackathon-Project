@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Activity, FileText, FileOutput, Loader2, Stethoscope } from "lucide-react";
+import { Activity, FileText, FileOutput, Loader2 } from "lucide-react";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +60,7 @@ export function DoctorConsultationModal({ appointment, open, onOpenChange, onSuc
 
     useEffect(() => {
         if (open && appointment) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSymptomInput("");
             setSymptoms([]);
             setPatientAge(appointment.patientId?.age?.toString() || "");

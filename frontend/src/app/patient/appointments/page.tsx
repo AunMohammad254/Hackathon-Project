@@ -33,10 +33,6 @@ export default function PatientAppointments() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState("all");
 
-    useEffect(() => {
-        fetchAppointments();
-    }, [user]);
-
     const fetchAppointments = async () => {
         try {
             const res = await api.get("/appointments");
@@ -47,6 +43,11 @@ export default function PatientAppointments() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchAppointments();
+    }, [user]);
 
     const cancelAppointment = async (id: string) => {
         if (!confirm("Are you sure you want to cancel this appointment?")) return;

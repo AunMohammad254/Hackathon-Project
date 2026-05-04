@@ -10,9 +10,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-    LineChart, Line, XAxis, YAxis, CartesianGrid, 
-    Tooltip, ResponsiveContainer, AreaChart, Area,
-    BarChart, Bar
+    XAxis, YAxis, CartesianGrid, 
+    Tooltip, ResponsiveContainer, AreaChart, Area
 } from "recharts";
 
 interface FinancialData {
@@ -45,7 +44,9 @@ export default function AdminIncome() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchFinancials();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [timeframe]);
 
     const totalRevenue = data?.totalRevenue || 0;
@@ -174,7 +175,7 @@ export default function AdminIncome() {
                                     />
                                     <Tooltip 
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                        formatter={(value: any) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                                        formatter={(value: any) => [`₹${Number(value).toLocaleString()}`, "Revenue"]}
                                     />
                                     <Area 
                                         type="monotone" 

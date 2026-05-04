@@ -74,6 +74,7 @@ export default function PatientDashboard() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchTimelineData();
     }, [user]);
 

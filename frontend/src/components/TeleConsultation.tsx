@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, CameraOff, Mic, MicOff, PhoneOff, Video } from 'lucide-react';
+import { Camera, CameraOff, Mic, MicOff, PhoneOff, Video, Loader2 } from 'lucide-react';
 import { getSocket } from '@/services/socket';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ interface TeleConsultationProps {
   onOpenChange: (open: boolean) => void;
   targetUserId: string; // The user ID to call
   isIncoming?: boolean;
-  incomingOffer?: any;
+  incomingOffer?: RTCSessionDescriptionInit;
 }
 
 const ICE_SERVERS = {
@@ -33,16 +33,6 @@ export function TeleConsultation({ open, onOpenChange, targetUserId, isIncoming,
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const socket = getSocket();
-
-  useEffect(() => {
-    if (open) {
-      startCall();
-    } else {
-      endCall();
-    }
-
-    return () => endCall();
-  }, [open]);
 
   const startCall = async () => {
     try {
@@ -119,6 +109,18 @@ export function TeleConsultation({ open, onOpenChange, targetUserId, isIncoming,
     setRemoteStream(null);
     setIsConnecting(false);
   };
+
+  useEffect(() => {
+    if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      startCall();
+    } else {
+      endCall();
+    }
+
+    return () => endCall();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const toggleAudio = () => {
     if (localStream) {
@@ -209,4 +211,3 @@ export function TeleConsultation({ open, onOpenChange, targetUserId, isIncoming,
   );
 }
 
-import { Loader2 } from 'lucide-react';

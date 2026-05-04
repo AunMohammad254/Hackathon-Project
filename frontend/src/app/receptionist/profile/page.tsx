@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { User, Loader2, Save, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { User, Loader2, Save, Mail, MapPin, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";

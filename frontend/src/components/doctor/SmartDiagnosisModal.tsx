@@ -142,6 +142,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
     };
 
     // Auto-fill age/gender when patient changes
+    // eslint-disable-next-line react-hooks/incompatible-library
     const selectedPatientId = form.watch("patientId");
     useEffect(() => {
         const p = patients.find(p => p._id === selectedPatientId);

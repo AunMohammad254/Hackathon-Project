@@ -14,19 +14,22 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import api from "@/services/api";
-import { toast } from "sonner";
 import {
     Card,
     CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
 } from "@/components/ui/card";
+
+interface ClinicalRecord {
+    id: number;
+    patient: string;
+    type: string;
+    date: string;
+    findings: string;
+}
 
 export default function DoctorRecordsPage() {
     const [loading, setLoading] = useState(true);
-    const [records, setRecords] = useState<any[]>([]);
+    const [records, setRecords] = useState<ClinicalRecord[]>([]);
 
     useEffect(() => {
         // Mocking fetching all relevant records
@@ -100,7 +103,7 @@ export default function DoctorRecordsPage() {
                                             </div>
                                             <p className="text-sm text-slate-500 flex items-center gap-1.5">
                                                 <Stethoscope size={14} className="text-indigo-400" />
-                                                Findings: <span className="text-slate-700 font-medium italic">"{record.findings}"</span>
+                                                Findings: <span className="text-slate-700 font-medium italic">&quot;{record.findings}&quot;</span>
                                             </p>
                                         </div>
 

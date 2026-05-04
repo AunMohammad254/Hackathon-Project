@@ -125,6 +125,7 @@ export default function ReceptionistDashboard() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchPatients();
         fetchDoctors();
         fetchTodaySchedule();

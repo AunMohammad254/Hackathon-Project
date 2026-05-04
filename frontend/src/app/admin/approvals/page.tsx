@@ -49,9 +49,9 @@ export default function ApprovalsPage() {
                 router.push("/dashboard");
                 return;
             }
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             fetchPendingUsers();
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user, authLoading, router]);
 
     const handleAction = async (userId: string, action: "Approved" | "Rejected") => {

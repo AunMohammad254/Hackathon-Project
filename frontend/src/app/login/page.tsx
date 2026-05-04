@@ -21,9 +21,10 @@ export default function Login() {
         try {
             const res = await api.post("/auth/login", { email, password });
             login(res.data);
-        } catch (err: any) {
-            if (err.response?.data?.message) {
-                setError(err.response.data.message);
+        } catch (err: unknown) {
+            const axiosErr = err as { response?: { data?: { message?: string } } };
+            if (axiosErr.response?.data?.message) {
+                setError(axiosErr.response.data.message);
             } else {
                 setError("Unable to connect to server. Please try again.");
             }

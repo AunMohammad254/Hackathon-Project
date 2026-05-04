@@ -1,10 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import ProtectedRoute from "@/components/ProtectedRoute";
-import { useAuth } from "@/context/AuthContext";
 import api from "@/services/api";
-import { Activity, Users, CalendarCheck, BrainCircuit, Activity as ActivityIcon } from "lucide-react";
+import { BrainCircuit, Activity as ActivityIcon } from "lucide-react";
 import LabReportAnalyzer from "@/components/doctor/LabReportAnalyzer";
 import { SmartDiagnosisModal } from "@/components/doctor/SmartDiagnosisModal";
 import { DoctorStats } from "@/components/doctor/DoctorStats";
@@ -24,7 +22,7 @@ interface Appointment {
 }
 
 export default function DoctorDashboard() {
-    const { user, logout } = useAuth();
+
     const [appointments, setAppointments] = useState<Appointment[]>([]);
 
     // Consultation Modal State
@@ -54,6 +52,7 @@ export default function DoctorDashboard() {
     };
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchDashboardData();
     }, []);
 

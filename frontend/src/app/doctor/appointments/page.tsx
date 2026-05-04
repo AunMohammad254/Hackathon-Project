@@ -39,23 +39,23 @@ export default function DoctorAppointmentsPage() {
     const [isCallOpen, setIsCallOpen] = useState(false);
     const [activeAppointment, setActiveAppointment] = useState<Appointment | null>(null);
 
-    useEffect(() => {
-        fetchAppointments();
-    }, []);
-
     const fetchAppointments = async () => {
         try {
             const res = await api.get("/appointments");
             if (res.data.success) {
                 setAppointments(res.data.appointments);
             }
-        } catch (error) {
-            console.error(error);
+        } catch {
             toast.error("Failed to fetch schedule");
         } finally {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchAppointments();
+    }, []);
 
     const handleStartCall = (app: Appointment) => {
         setActiveAppointment(app);
@@ -67,7 +67,7 @@ export default function DoctorAppointmentsPage() {
             await api.put(`/appointments/${id}/status`, { status });
             toast.success(`Appointment ${status}`);
             fetchAppointments();
-        } catch (error) {
+        } catch {
             toast.error("Failed to update status");
         }
     };
