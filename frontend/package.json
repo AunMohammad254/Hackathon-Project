@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-clinic/shared": "../packages/shared",
     "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "axios": "^1.16.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -31,11 +32,12 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@socket.io/component-emitter": "^3.1.2",
     "@tailwindcss/postcss": "^4.2.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^20.19.39",
+    "@types/node": "^25.6.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",

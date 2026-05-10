@@ -3,7 +3,7 @@ import { createPrescription, getPatientPrescriptions, getMyPrescriptions } from 
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Only Doctor can create prescription
 router.post('/', protect, authorizeRoles('Doctor'), createPrescription);

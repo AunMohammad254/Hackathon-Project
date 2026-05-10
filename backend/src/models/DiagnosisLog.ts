@@ -1,4 +1,16 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+
+export interface IDiagnosisLogDocument extends Document {
+    patientId?: mongoose.Types.ObjectId;
+    doctorId: mongoose.Types.ObjectId;
+    symptoms: string[];
+    aiResponse: any;
+    riskLevel: 'Low' | 'Medium' | 'High';
+    age?: number;
+    gender?: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
 
 const diagnosisLogSchema = new mongoose.Schema({
     patientId: {
@@ -28,5 +40,5 @@ const diagnosisLogSchema = new mongoose.Schema({
 // PERF-04: Index for doctor lookups
 diagnosisLogSchema.index({ doctorId: 1 });
 
-const DiagnosisLog = mongoose.models.DiagnosisLog || mongoose.model('DiagnosisLog', diagnosisLogSchema);
+const DiagnosisLog = mongoose.models.DiagnosisLog || mongoose.model<IDiagnosisLogDocument>('DiagnosisLog', diagnosisLogSchema);
 export default DiagnosisLog;

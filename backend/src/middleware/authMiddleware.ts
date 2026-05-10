@@ -7,7 +7,7 @@ interface JwtPayload {
     role: string;
 }
 
-export interface AuthRequest extends Request {
+export interface AuthRequest extends Request<any, any, any, any> {
     user?: {
         _id: string;
         name: string;
@@ -15,7 +15,10 @@ export interface AuthRequest extends Request {
         role: string;
         subscriptionPlan?: string;
     };
+    file?: Express.Multer.File;
+    files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
+
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization;

@@ -35,6 +35,13 @@ export interface IAppointment {
   date: string;
   status: AppointmentStatus;
   reason?: string;
+  symptoms?: string;
+  aiPreDiagnosis?: {
+    possibleConditions: string[];
+    riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+    urgency: string;
+    advice: string;
+  };
   price?: number;
   invoiceUrl?: string;
   createdAt: string;

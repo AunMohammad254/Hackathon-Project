@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 
 interface Doctor {
     _id: string;
@@ -51,6 +52,7 @@ const formSchema = z.object({
     }).refine((date) => date > new Date(), {
         message: "Appointment time must be in the future.",
     }),
+    symptoms: z.string().min(10, "Please describe your symptoms in at least 10 characters.").max(1000),
 });
 
 interface BookAppointmentModalProps {
@@ -87,7 +89,8 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
         setLoadingDoctors(true);
         try {
             const response = await api.get("/users/doctors");
-            setDoctors(response.data);
+            const doctorsData = response.data.success ? response.data.doctors : response.data;
+            setDoctors(Array.isArray(doctorsData) ? doctorsData : []);
         } catch (error) {
             console.error("Failed to fetch doctors:", error);
             toast.error("Could not load available doctors.");
@@ -112,6 +115,7 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
             await api.post("/appointments", {
                 doctorId: values.doctorId,
                 date: values.date.toISOString(),
+                symptoms: values.symptoms,
             });
 
             toast.success("Appointment booked successfully!");
@@ -164,7 +168,7 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {doctors.map((doctor) => (
+                                            {doctors.map((doctor: Doctor) => (
                                                 <SelectItem key={doctor._id} value={doctor._id}>
                                                     Dr. {doctor.name}
                                                 </SelectItem>
@@ -210,7 +214,7 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
                                             <Calendar
                                                 mode="single"
                                                 selected={field.value}
-                                                onSelect={(date) => {
+                                                onSelect={(date: Date | undefined) => {
                                                     // Preserve time if already selected, otherwise set to 9:00 AM
                                                     if (date) {
                                                         const newDate = new Date(date);
@@ -222,7 +226,7 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
                                                         field.onChange(newDate);
                                                     }
                                                 }}
-                                                disabled={(date) =>
+                                                disabled={(date: Date) =>
                                                     date < new Date(new Date().setHours(0, 0, 0, 0))
                                                 }
                                                 initialFocus
@@ -270,6 +274,24 @@ export function BookAppointmentModal({ open, onOpenChange, onSuccess }: BookAppo
                                             </div>
                                         </PopoverContent>
                                     </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="symptoms"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Describe Symptoms (for AI Pre-Diagnosis)</FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="e.g. Sharp chest pain for 2 days, worse when breathing deeply..."
+                                            className="resize-none min-h-[100px]"
+                                            {...field}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

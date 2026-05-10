@@ -53,7 +53,7 @@ export default function DoctorPatientsPage() {
         fetchPatients();
     }, []);
 
-    const filteredPatients = patients.filter(p => 
+    const filteredPatients = patients.filter((p: Patient) => 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.contact.includes(searchQuery)
     );
@@ -92,7 +92,7 @@ export default function DoctorPatientsPage() {
                             placeholder="Search by name, contact, or ID..." 
                             className="pl-12 h-14 text-lg bg-white border-slate-200 focus:border-indigo-500 shadow-sm"
                             value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
@@ -106,7 +106,7 @@ export default function DoctorPatientsPage() {
                 </div>
             ) : filteredPatients.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredPatients.map((patient) => (
+                    {filteredPatients.map((patient: Patient) => (
                         <Card key={patient._id} className="group hover:shadow-xl transition-all duration-300 border-slate-200 hover:border-indigo-200 overflow-hidden bg-white">
                             <div className="h-2 bg-slate-100 group-hover:bg-indigo-500 transition-colors" />
                             <CardHeader className="pb-4">

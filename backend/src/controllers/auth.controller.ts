@@ -114,7 +114,7 @@ export const loginUser = async (req: AuthRequest, res: Response) => {
         const user = await User.findOne({ email });
 
         if (user && (await bcrypt.compare(password, user.password))) {
-            const status = (user as any).status || 'Approved';
+            const status = user.status || 'Approved';
 
             if (status === 'Pending') {
                 return res.status(403).json({ success: false, message: 'Account pending approval' });

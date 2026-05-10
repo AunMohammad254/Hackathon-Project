@@ -9,7 +9,9 @@ import {
     AlertCircle,
     Download,
     Eye,
-    History
+    History,
+    Trash2,
+    Activity
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,22 +31,85 @@ interface UploadResult {
     findings: string[];
     nextSteps: string[];
     rawText: string;
+    metrics?: {
+        name: string;
+        value: string;
+        unit: string;
+        referenceRange: string;
+        status: string;
+    }[];
 }
 
 export default function MedicalRecordsPage() {
     const [isUploading, setIsUploading] = useState(false);
     const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [records, setRecords] = useState<any[]>([]);
+    const [isLoadingRecords, setIsLoadingRecords] = useState(true);
+
+    const fetchRecords = async () => {
+        setIsLoadingRecords(true);
+        try {
+            const res = await api.get("/patients/my-records");
+            if (res.data.success) {
+                setRecords(res.data.data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch records:", error);
+            toast.error("Failed to load your medical records.");
+        } finally {
+            setIsLoadingRecords(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchRecords();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    const handleDeleteRecord = async (id: string) => {
+        if (!confirm("Are you sure you want to delete this record?")) return;
+        try {
+            const res = await api.delete(`/patients/records/${id}`);
+            if (res.data.success) {
+                toast.success("Medical record deleted");
+                setRecords((prev) => prev.filter((r) => r._id !== id));
+                // Clear the top preview if the deleted record was being viewed
+                setUploadResult(null);
+            }
+        } catch (error) {
+            console.error("Failed to delete record:", error);
+            toast.error("Failed to delete medical record");
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
+            const file = e.target.files[0];
+            const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+            
+            if (!allowedTypes.includes(file.type)) {
+                toast.error("Your uploaded a wrong format. Please upload supported Format");
+                e.target.value = ""; // Clear the input
+                setSelectedFile(null);
+                return;
+            }
+            
+            setSelectedFile(file);
         }
     };
 
     const handleUpload = async () => {
         if (!selectedFile) {
             toast.error("Please select a file to upload");
+            return;
+        }
+
+        // Secondary format check
+        const allowedTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg"];
+        if (!allowedTypes.includes(selectedFile.type)) {
+            toast.error("Your uploaded a wrong format. Please upload supported Format");
+            setSelectedFile(null);
             return;
         }
 
@@ -62,6 +127,8 @@ export default function MedicalRecordsPage() {
             if (res.data.success) {
                 setUploadResult(res.data.data);
                 toast.success("Medical record analyzed successfully!");
+                setSelectedFile(null);
+                fetchRecords(); // Refresh the table
             }
         } catch (error) {
             console.error(error);
@@ -99,7 +166,7 @@ export default function MedicalRecordsPage() {
                             <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 flex flex-col items-center justify-center bg-white">
                                 <Input 
                                     type="file" 
-                                    accept=".pdf,image/*" 
+                                    accept=".pdf,.png,.jpg,.jpeg" 
                                     className="hidden" 
                                     id="record-upload"
                                     onChange={handleFileChange}
@@ -228,6 +295,49 @@ export default function MedicalRecordsPage() {
                                     </div>
                                 </div>
 
+                                {uploadResult.metrics && uploadResult.metrics.length > 0 && (
+                                    <div className="space-y-4 pt-6 border-t border-slate-100">
+                                        <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                            <Activity className="text-indigo-500" size={18} />
+                                            Extracted Lab Metrics
+                                        </h3>
+                                        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="bg-slate-50 text-slate-500 text-xs uppercase font-semibold">
+                                                        <tr>
+                                                            <th className="px-4 py-3 border-b border-slate-200">Test Name</th>
+                                                            <th className="px-4 py-3 border-b border-slate-200">Result</th>
+                                                            <th className="px-4 py-3 border-b border-slate-200">Ref Range</th>
+                                                            <th className="px-4 py-3 border-b border-slate-200 text-center">Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-100">
+                                                        {uploadResult.metrics.map((m: any, i: number) => (
+                                                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                                                <td className="px-4 py-3 font-medium text-slate-800">{m.name}</td>
+                                                                <td className="px-4 py-3 text-slate-700">
+                                                                    <span className="font-semibold">{m.value}</span> <span className="text-xs text-slate-400 ml-1">{m.unit}</span>
+                                                                </td>
+                                                                <td className="px-4 py-3 text-slate-500 text-xs">{m.referenceRange}</td>
+                                                                <td className="px-4 py-3 text-center">
+                                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                                                        m.status === 'Abnormal' 
+                                                                        ? 'bg-red-50 text-red-700 border-red-200' 
+                                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                                    }`}>
+                                                                        {m.status}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="space-y-4 pt-6 border-t border-slate-100">
                                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Raw Text Summary</h3>
                                     <p className="text-sm text-slate-500 leading-relaxed italic bg-slate-50 p-4 rounded-lg border border-slate-100">
@@ -248,7 +358,7 @@ export default function MedicalRecordsPage() {
                         </div>
                     )}
 
-                    {/* Recent Uploads Table (Mock) */}
+                    {/* Recent Uploads Table */}
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg">Recent Uploads</CardTitle>
@@ -265,29 +375,68 @@ export default function MedicalRecordsPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {[
-                                            { name: "Blood_Test_April.pdf", type: "Lab Report", date: "Apr 24, 2024" },
-                                            { name: "Clinical_Note_Feb.jpg", type: "Clinical Note", date: "Feb 10, 2024" },
-                                        ].map((record, i) => (
-                                            <tr key={i} className="group hover:bg-slate-50/50 transition-colors">
-                                                <td className="py-4 flex items-center gap-3 font-medium text-slate-700">
-                                                    <FileText size={18} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
-                                                    {record.name}
-                                                </td>
-                                                <td className="py-4 text-slate-500">{record.type}</td>
-                                                <td className="py-4 text-slate-500">{record.date}</td>
-                                                <td className="py-4 text-right">
-                                                    <div className="flex justify-end gap-2">
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-teal-600">
-                                                            <Eye size={16} />
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-teal-600">
-                                                            <Download size={16} />
-                                                        </Button>
-                                                    </div>
+                                        {isLoadingRecords ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-8 text-center text-slate-400">
+                                                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                                                    Loading records...
                                                 </td>
                                             </tr>
-                                        ))}
+                                        ) : records.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={4} className="py-8 text-center text-slate-400">
+                                                    No medical records found.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            records.map((record) => (
+                                                <tr key={record._id} className="group hover:bg-slate-50/50 transition-colors">
+                                                    <td className="py-4 flex items-center gap-3 font-medium text-slate-700">
+                                                        <FileText size={18} className="text-slate-300 group-hover:text-teal-500 transition-colors" />
+                                                        {record.fileName}
+                                                    </td>
+                                                    <td className="py-4 text-slate-500">
+                                                        {record.aiAnalysis?.findings?.length > 0 ? "Analyzed Document" : record.fileType || "Document"}
+                                                    </td>
+                                                    <td className="py-4 text-slate-500">
+                                                        {new Date(record.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="py-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-8 w-8 text-slate-400 hover:text-teal-600"
+                                                                onClick={() => setUploadResult(record.aiAnalysis)}
+                                                                title="View Analysis"
+                                                            >
+                                                                <Eye size={16} />
+                                                            </Button>
+                                                            {record.fileUrl && (
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="icon" 
+                                                                    className="h-8 w-8 text-slate-400 hover:text-teal-600"
+                                                                    onClick={() => window.open(record.fileUrl, '_blank')}
+                                                                    title="Download Document"
+                                                                >
+                                                                    <Download size={16} />
+                                                                </Button>
+                                                            )}
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-8 w-8 text-slate-400 hover:text-red-500"
+                                                                onClick={() => handleDeleteRecord(record._id)}
+                                                                title="Delete Record"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

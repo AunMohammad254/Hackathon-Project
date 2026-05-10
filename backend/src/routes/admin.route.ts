@@ -13,7 +13,7 @@ import {
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // General admin routes require Admin (or Super Admin via inheritance)
 router.use(protect, authorizeRoles('Admin'));

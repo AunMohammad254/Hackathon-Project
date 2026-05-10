@@ -1,4 +1,15 @@
-import mongoose from 'mongoose';
+import mongoose, { Document } from 'mongoose';
+
+export interface IGeminiJobDocument extends Document {
+    prompt: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    response?: string;
+    error?: string;
+    retries: number;
+    lastAttemptedAt?: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
 
 const geminiJobSchema = new mongoose.Schema({
     prompt: { type: String, required: true },
@@ -9,4 +20,4 @@ const geminiJobSchema = new mongoose.Schema({
     lastAttemptedAt: { type: Date }
 }, { timestamps: true });
 
-export default mongoose.models.GeminiJob || mongoose.model('GeminiJob', geminiJobSchema);
+export default mongoose.models.GeminiJob || mongoose.model<IGeminiJobDocument>('GeminiJob', geminiJobSchema);

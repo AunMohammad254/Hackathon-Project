@@ -36,5 +36,5 @@ prescriptionSchema.index({ patientId: 1, createdAt: -1 });
 // PERF-04: Index for doctor lookups
 prescriptionSchema.index({ doctorId: 1 });
 
-const Prescription = mongoose.models.Prescription || mongoose.model('Prescription', prescriptionSchema);
+const Prescription = mongoose.models.Prescription || mongoose.model<IPrescriptionDocument>('Prescription', prescriptionSchema);
 export default Prescription;

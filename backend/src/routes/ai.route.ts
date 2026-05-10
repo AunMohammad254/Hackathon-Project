@@ -6,7 +6,7 @@ import { requireProPlan } from '../middleware/subscriptionMiddleware';
 import { aiRateLimiter } from '../middleware/rateLimiter';
 import { upload } from '../middleware/uploadMiddleware';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Queue status (for frontend countdown)
 router.get('/queue-status', protect, aiQueueStatus);

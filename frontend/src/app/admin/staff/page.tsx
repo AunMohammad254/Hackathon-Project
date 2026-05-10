@@ -60,8 +60,8 @@ export default function StaffManagement() {
         try {
             await api.put(`/admin/users/${userId}/role`, { role: newRole });
             toast.success(`Role updated to ${newRole}`);
-            setUsers((prev) =>
-                prev.map((u) => (u._id === userId ? { ...u, role: newRole } : u))
+            setUsers((prev: UserData[]) =>
+                prev.map((u: UserData) => (u._id === userId ? { ...u, role: newRole } : u))
             );
             setEditingId(null);
         } catch (error) {
@@ -73,14 +73,14 @@ export default function StaffManagement() {
         try {
             await api.delete(`/admin/users/${userId}`);
             toast.success("User deleted successfully");
-            setUsers((prev) => prev.filter((u) => u._id !== userId));
+            setUsers((prev: UserData[]) => prev.filter((u: UserData) => u._id !== userId));
             setDeletingId(null);
         } catch (error) {
             console.error("Failed to delete user:", error);
         }
     };
 
-    const filteredUsers = users.filter((u) => {
+    const filteredUsers = users.filter((u: UserData) => {
         const matchesSearch =
             u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             u.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -88,8 +88,8 @@ export default function StaffManagement() {
         return matchesSearch && matchesRole;
     });
 
-    const roleCounts = ROLES.reduce((acc, role) => {
-        acc[role] = users.filter((u) => u.role === role).length;
+    const roleCounts = ROLES.reduce((acc: Record<string, number>, role: string) => {
+        acc[role] = users.filter((u: UserData) => u.role === role).length;
         return acc;
     }, {} as Record<string, number>);
 
@@ -167,7 +167,7 @@ export default function StaffManagement() {
                         </TableHeader>
                         <TableBody>
                             {filteredUsers.length > 0 ? (
-                                filteredUsers.map((u) => (
+                                filteredUsers.map((u: UserData) => (
                                     <TableRow key={u._id} className="hover:bg-slate-50/80 transition-colors group">
                                         <TableCell className="font-medium text-slate-900">
                                             <div className="flex items-center gap-3">

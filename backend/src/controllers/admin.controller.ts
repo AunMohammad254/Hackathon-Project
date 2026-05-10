@@ -389,7 +389,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        (user as any).status = parsed.data.status;
+        user.status = parsed.data.status;
         await user.save();
 
         if (user.role === 'Doctor' && parsed.data.status === 'Approved') {
@@ -399,7 +399,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
         res.json({
             success: true,
             message: `User status updated to ${parsed.data.status}`,
-            user: { _id: user._id, name: user.name, email: user.email, role: user.role, status: (user as any).status },
+            user: { _id: user._id, name: user.name, email: user.email, role: user.role, status: user.status },
         });
     } catch (error: unknown) {
         console.error('[Update Status Error]', (error as Error).message);

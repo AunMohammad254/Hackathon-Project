@@ -8,7 +8,7 @@ import {
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 router.route('/')
     .post(protect, authorizeRoles('Admin', 'Receptionist', 'Patient', 'Doctor'), createAppointment)

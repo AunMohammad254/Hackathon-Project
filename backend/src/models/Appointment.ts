@@ -30,6 +30,18 @@ const appointmentSchema = new mongoose.Schema({
     reason: {
         type: String,
     },
+    symptoms: {
+        type: String,
+    },
+    aiPreDiagnosis: {
+        possibleConditions: [String],
+        riskLevel: {
+            type: String,
+            enum: ['Low', 'Medium', 'High', 'Critical'],
+        },
+        urgency: String,
+        advice: String,
+    },
     price: {
         type: Number,
         default: 500,
@@ -43,5 +55,5 @@ const appointmentSchema = new mongoose.Schema({
 appointmentSchema.index({ doctorId: 1, status: 1 });
 appointmentSchema.index({ patientId: 1 });
 
-const Appointment = mongoose.models.Appointment || mongoose.model('Appointment', appointmentSchema);
+const Appointment = mongoose.models.Appointment || mongoose.model<IAppointmentDocument>('Appointment', appointmentSchema);
 export default Appointment;

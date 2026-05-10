@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import Appointment from '../models/Appointment';
 import Prescription from '../models/Prescription';
+import Patient from '../models/Patient';
 import { AuthRequest } from '../middleware/authMiddleware';
 
 // @desc    Get doctor analytics
@@ -66,6 +67,28 @@ export const getDoctorAnalytics = async (req: AuthRequest, res: Response) => {
         });
     } catch (error: unknown) {
         console.error('[Doctor Analytics Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+
+// @desc    Get doctor's patients
+// @route   GET /api/doctor/patients
+// @access  Private (Doctor)
+export const getDoctorPatients = async (req: AuthRequest, res: Response) => {
+    try {
+        const doctorId = req.user!._id;
+
+        // Find all unique patientIds from appointments with this doctor
+        const patientIds = await Appointment.distinct('patientId', { doctorId });
+
+        const patients = await Patient.find({ _id: { $in: patientIds } }).lean();
+
+        res.status(200).json({
+            success: true,
+            patients,
+        });
+    } catch (error: unknown) {
+        console.error('[Get Doctor Patients Error]', (error as Error).message);
         res.status(500).json({ success: false, message: 'Server error' });
     }
 };

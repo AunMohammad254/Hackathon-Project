@@ -85,7 +85,7 @@ export default function AdminOrders() {
         cancelled: "bg-rose-100 text-rose-700 border-rose-200",
     };
 
-    const filteredOrders = orders.filter(o => 
+    const filteredOrders = orders.filter((o: Order) => 
         o.patientId?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o.doctorId?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         o._id.includes(searchTerm)
@@ -119,7 +119,7 @@ export default function AdminOrders() {
                     </div>
                     <p className="text-sm text-slate-500 font-medium">Total Volume</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                        ₹{orders.reduce((acc, o) => acc + (o.price || 0), 0).toLocaleString()}
+                        ₹{orders.reduce((acc: number, o: Order) => acc + (o.price || 0), 0).toLocaleString()}
                     </h3>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -130,7 +130,7 @@ export default function AdminOrders() {
                     </div>
                     <p className="text-sm text-slate-500 font-medium">Pending Orders</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                        {orders.filter(o => o.status === "pending").length}
+                        {orders.filter((o: Order) => o.status === "pending").length}
                     </h3>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -141,7 +141,7 @@ export default function AdminOrders() {
                     </div>
                     <p className="text-sm text-slate-500 font-medium">Completed</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                        {orders.filter(o => o.status === "completed").length}
+                        {orders.filter((o: Order) => o.status === "completed").length}
                     </h3>
                 </div>
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -152,7 +152,7 @@ export default function AdminOrders() {
                     </div>
                     <p className="text-sm text-slate-500 font-medium">Cancelled</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1">
-                        {orders.filter(o => o.status === "cancelled").length}
+                        {orders.filter((o: Order) => o.status === "cancelled").length}
                     </h3>
                 </div>
             </div>
@@ -230,7 +230,7 @@ export default function AdminOrders() {
                             </TableHeader>
                             <TableBody>
                                 {filteredOrders.length > 0 ? (
-                                    filteredOrders.map((order) => (
+                                    filteredOrders.map((order: Order) => (
                                         <TableRow key={order._id} className="hover:bg-slate-50/50 transition-colors group">
                                             <TableCell className="font-mono text-xs text-slate-500 uppercase">
                                                 #{order._id.slice(-6)}
@@ -294,7 +294,7 @@ export default function AdminOrders() {
                                     variant="outline" 
                                     size="sm" 
                                     disabled={page === 1}
-                                    onClick={() => setPage(p => p - 1)}
+                                    onClick={() => setPage((p: number) => p - 1)}
                                 >
                                     Previous
                                 </Button>
@@ -302,7 +302,7 @@ export default function AdminOrders() {
                                     variant="outline" 
                                     size="sm"
                                     disabled={page === totalPages}
-                                    onClick={() => setPage(p => p + 1)}
+                                    onClick={() => setPage((p: number) => p + 1)}
                                 >
                                     Next
                                 </Button>

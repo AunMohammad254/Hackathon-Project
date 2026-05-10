@@ -9,14 +9,9 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "composite": true,
     "types": ["bun", "node"]
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "__tests__"
-  ]
+  "include": ["src/**/*", "test-model.ts"],
+  "exclude": ["node_modules", "dist", "__tests__"]
 }

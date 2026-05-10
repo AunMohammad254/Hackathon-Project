@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:latest
+    image: mongo:7.0
     ports:
       - "27017:27017"
     volumes:
@@ -31,6 +31,19 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:5000/api/v1
     depends_on:
       - backend
+
+  ai-assistant:
+    build:
+      context: .
+      dockerfile: ai-assistant.Dockerfile
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TERM=xterm-256color
+      - COLORTERM=truecolor
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    command: tail -f /dev/null
 
 volumes:
   mongodb_data:

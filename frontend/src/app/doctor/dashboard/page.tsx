@@ -80,7 +80,7 @@ export default function DoctorDashboard() {
             {/* Stats Cards extracted to component */}
             <DoctorStats 
                 stats={analytics?.stats} 
-                confirmedCount={appointments.filter(a => a.status === 'confirmed').length} 
+                confirmedCount={appointments.filter((a: Appointment) => a.status === 'confirmed').length} 
             />
 
             {/* Chart Row */}

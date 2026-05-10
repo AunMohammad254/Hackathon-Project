@@ -1,4 +1,6 @@
 import { Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, FinishReason } from '@google/generative-ai';
 import { AuthRequest } from '../middleware/authMiddleware';
 import { queueGeminiRequest, getQueueStatus, getCooldownRemaining } from '../services/geminiQueue';
@@ -7,11 +9,21 @@ import DiagnosisLog from '../models/DiagnosisLog';
 import Prescription from '../models/Prescription';
 import Appointment from '../models/Appointment';
 import User from '../models/User';
+import Patient from '../models/Patient';
+import MedicalRecord from '../models/MedicalRecord';
+import { uploadMedicalRecordFile } from '../services/supabase.service';
 
 // Helper: detect rate-limit errors from the queue and return 429 with countdown
 const handleAIError = (error: unknown, res: Response, context: string) => {
     const msg = (error as Error).message || '';
     console.error(`[${context}]`, msg);
+
+    if (msg.includes('503') || msg.includes('high demand') || msg.includes('Service Unavailable')) {
+        return res.status(503).json({
+            success: false,
+            message: 'AI service is currently experiencing high demand. Please try again in a few moments.',
+        });
+    }
 
     if (msg.includes('Rate limited') || msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota')) {
         const match = msg.match(/(\d+\.?\d*)\s*s/i);
@@ -198,8 +210,8 @@ export const translatePrescription = async (req: AuthRequest, res: Response) => 
       - Maintain medical accuracy
       
       Prescription Data:
-      Medicines: ${JSON.stringify((prescription as any).medicines)}
-      Instructions: ${(prescription as any).instructions || 'None'}
+      Medicines: ${JSON.stringify(prescription.medicines)}
+      Instructions: ${prescription.instructions || 'None'}
       
       Format your response strictly as a JSON object:
       {
@@ -498,16 +510,16 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
         if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
         const now = new Date();
-        const resetDate = new Date((user as any).aiPredictiveGenResetDate || 0);
+        const resetDate = new Date(user.aiPredictiveGenResetDate || 0);
         
         if (now.toDateString() !== resetDate.toDateString()) {
-            (user as any).aiPredictiveGenCount = 0;
-            (user as any).aiPredictiveGenResetDate = now;
+            user.aiPredictiveGenCount = 0;
+            user.aiPredictiveGenResetDate = now;
         }
 
         const maxLimit = user.subscriptionPlan === 'Pro' ? 20 : 10;
 
-        if ((user as any).aiPredictiveGenCount >= maxLimit) {
+        if (user.aiPredictiveGenCount >= maxLimit) {
             return res.status(429).json({ 
                 success: false, 
                 message: `Daily limit reached. You can generate predictive analytics ${maxLimit} times a day on the ${user.subscriptionPlan} plan.` 
@@ -515,29 +527,53 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
         }
 
         const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 60); // 60 days for better trend
 
-        const [recentDiagnoses, recentAppointments] = await Promise.all([
+        const [recentDiagnoses, recentAppointments, recentPrescriptions] = await Promise.all([
             DiagnosisLog.find({ createdAt: { $gte: thirtyDaysAgo } }).populate('doctorId', 'name').lean(),
             Appointment.find({ createdAt: { $gte: thirtyDaysAgo } }).populate('doctorId', 'name').lean(),
+            Prescription.find({ createdAt: { $gte: thirtyDaysAgo } }).lean(),
         ]);
 
-        const prompt = `
-      You are an AI health analytics assistant. Analyze the following 30-day clinic data and provide predictions.
-      
-      RECENT DIAGNOSES (${recentDiagnoses.length} total):
-      ${JSON.stringify((recentDiagnoses as unknown as PopulatedDiagnosis[]).map(d => ({ symptoms: d.symptoms, riskLevel: d.riskLevel, date: d.createdAt, doctor: d.doctorId?.name })).slice(0, 50))}
-      
-      RECENT APPOINTMENTS (${recentAppointments.length} total):
-      ${JSON.stringify((recentAppointments as unknown as PopulatedAppointment[]).map(a => ({ status: a.status, date: a.date, doctor: a.doctorId?.name })).slice(0, 50))}
+        // Aggregate some data manually to help AI (and save tokens)
+        const revenueByDoctor: Record<string, number> = {};
+        recentAppointments.forEach((a: any) => {
+            if (a.status === 'completed') {
+                const name = a.doctorId?.name || 'Unknown';
+                revenueByDoctor[name] = (revenueByDoctor[name] || 0) + (a.price || 500);
+            }
+        });
 
+        const medicineCounts: Record<string, number> = {};
+        recentPrescriptions.forEach((p: any) => {
+            p.medicines.forEach((m: any) => {
+                medicineCounts[m.name] = (medicineCounts[m.name] || 0) + 1;
+            });
+        });
+
+        const topMedicines = Object.entries(medicineCounts)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5);
+
+        const prompt = `
+      You are a Senior Clinic Performance Analyst AI. Analyze the following 60-day clinic performance data and provide advanced strategic insights.
+      
+      DATA SUMMARY:
+      - Total Appointments: ${recentAppointments.length}
+      - Total Completed: ${recentAppointments.filter((a: any) => a.status === 'completed').length}
+      - Total Revenue: ${recentAppointments.filter((a: any) => a.status === 'completed').reduce((acc: number, curr: any) => acc + (curr.price || 500), 0)}
+      - Revenue by Doctor: ${JSON.stringify(revenueByDoctor)}
+      - Top Medicines Prescribed: ${JSON.stringify(topMedicines)}
+      - Recent Diagnoses Counts: ${recentDiagnoses.length}
+      
       Provide your analysis strictly as JSON matching this format:
       {
         "topConditions": ["condition1", "condition2", "condition3"],
-        "patientLoadForecast": "Brief forecast of patient volume for next week",
-        "doctorPerformanceTrends": "Insights on doctor workload and performance trends",
-        "trendInsight": "Key trend or insight from the data",
-        "recommendation": "One actionable recommendation for clinic management"
+        "patientLoadForecast": "Detailed forecast of patient volume for the next 30 days based on trends",
+        "doctorPerformanceTrends": "Strategic evaluation of doctor workload and productivity",
+        "revenueForecast": "Financial prediction for the next 30 days with reasoning",
+        "resourceAdvice": "Actionable advice on staffing or equipment needs",
+        "strategicGrowth": "One major strategic recommendation to grow the clinic's revenue or efficiency"
       }
       
       Output ONLY valid JSON.
@@ -555,12 +591,12 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
         try {
             const parsed = JSON.parse(cleaned);
 
-            (user as any).aiPredictiveGenCount += 1;
+            user.aiPredictiveGenCount += 1;
             await user.save();
 
             res.status(200).json({ success: true, data: parsed });
         } catch {
-            (user as any).aiPredictiveGenCount += 1;
+            user.aiPredictiveGenCount += 1;
             await user.save();
 
             res.status(200).json({
@@ -568,9 +604,10 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
                 data: {
                     topConditions: ['Insufficient data'],
                     patientLoadForecast: 'Not enough data for forecasting yet.',
-                    doctorPerformanceTrends: 'Need more appointment and diagnosis logs to analyze doctor performance.',
-                    trendInsight: 'Add more diagnoses to generate insights.',
-                    recommendation: 'Continue logging patient visits for accurate predictions.',
+                    doctorPerformanceTrends: 'Need more appointment and diagnosis logs.',
+                    revenueForecast: 'Forecast unavailable.',
+                    resourceAdvice: 'Continue standard operations.',
+                    strategicGrowth: 'Increase data collection for better insights.',
                 },
             });
         }
@@ -581,6 +618,7 @@ export const predictiveAnalytics = async (req: AuthRequest, res: Response) => {
 
 // ── Medical Record Upload & OCR ──
 export const uploadMedicalRecord = async (req: AuthRequest, res: Response) => {
+    console.log('[uploadMedicalRecord] Request received. File:', req.file?.originalname, 'Mime:', req.file?.mimetype);
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'No record file uploaded' });
@@ -588,7 +626,8 @@ export const uploadMedicalRecord = async (req: AuthRequest, res: Response) => {
 
         const client = getGenAI();
         const model = client.getGenerativeModel({ 
-            model: 'gemini-1.5-flash', // Use stable flash for OCR
+            model: 'gemini-2.5-flash',
+            generationConfig: { responseMimeType: "application/json" }
         });
 
         const prompt = `
@@ -605,7 +644,10 @@ export const uploadMedicalRecord = async (req: AuthRequest, res: Response) => {
         "date": "...",
         "findings": ["...", "..."],
         "nextSteps": ["...", "..."],
-        "rawText": "full extracted text summary"
+        "metrics": [
+            { "name": "...", "value": "...", "unit": "...", "referenceRange": "...", "status": "Normal | Abnormal" }
+        ],
+        "rawText": "full extracted text summary (IMPORTANT: ensure all newlines inside this string are properly escaped as \\n so the JSON is valid)"
       }
     `;
 
@@ -618,16 +660,55 @@ export const uploadMedicalRecord = async (req: AuthRequest, res: Response) => {
 
         const result = await model.generateContent([prompt, filePart]);
         const responseText = result.response.text();
+        
+        // Safety check for empty or blocked response
+        if (!responseText) {
+            return res.status(500).json({ success: false, message: 'AI returned an empty response. It might have been blocked for safety.' });
+        }
+
         const cleanedText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
+        let parsedData;
         try {
-            const parsedData = JSON.parse(cleanedText);
-            res.status(200).json({ success: true, data: parsedData });
+            parsedData = JSON.parse(cleanedText);
         } catch (parseError) {
             console.error('[OCR Parse Error]', cleanedText);
-            res.status(500).json({ success: false, message: 'Failed to parse AI output' });
+            try {
+                fs.appendFileSync(path.join(process.cwd(), 'error.log'), `[${new Date().toISOString()}] [OCR Parse Error] ${cleanedText}\n\n`);
+            } catch (e) {}
+            return res.status(500).json({ success: false, message: 'Failed to parse AI output. Raw: ' + (cleanedText.substring(0, 100)) });
         }
+
+        // Fetch patient based on user context
+        let patientId = req.body.patientId;
+        if (!patientId && req.user!.role === 'Patient') {
+            const patient = await Patient.findOne({ createdBy: req.user!._id }).lean();
+            if (patient) patientId = patient._id;
+        }
+
+        // Only attempt DB save if patientId is resolved
+        if (patientId) {
+            // 1. Upload to Supabase
+            const fileExt = req.file.originalname.split('.').pop();
+            const uniqueFileName = `record-${patientId}-${Date.now()}.${fileExt}`;
+            const fileKey = await uploadMedicalRecordFile(req.file.buffer, uniqueFileName, req.file.mimetype);
+
+            // 2. Save to MedicalRecord DB
+            const newRecord = await MedicalRecord.create({
+                patientId,
+                fileName: req.file.originalname,
+                fileType: req.file.mimetype,
+                fileKey,
+                aiAnalysis: parsedData,
+            });
+
+            return res.status(200).json({ success: true, data: parsedData, recordId: newRecord._id });
+        }
+
+        // Fallback for missing patientId (e.g. testing)
+        res.status(200).json({ success: true, data: parsedData });
     } catch (error: unknown) {
+        console.error('[Medical Record Upload Fatal Error]', error);
         handleAIError(error, res, 'Medical Record OCR Error');
     }
 };

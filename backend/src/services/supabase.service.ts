@@ -1,17 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
 // Lazily create client to avoid crash at import time if env vars aren't ready
 let _supabase: ReturnType<typeof createClient> | null = null;
 
 const getSupabase = () => {
     if (!_supabase) {
-        if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        const url = process.env.SUPABASE_URL || '';
+        const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+        if (!url || !key) {
             throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment variables');
         }
-        _supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        _supabase = createClient(url, key);
     }
     return _supabase;
 };
@@ -114,6 +113,51 @@ export const getSignedInvoiceUrl = async (fileName: string): Promise<string | nu
         return data?.signedUrl || null;
     } catch (error) {
         console.error('Failed to generate signed url for invoice:', error);
+        return null;
+    }
+};
+
+/**
+ * Uploads a Medical Record buffer to Supabase Storage.
+ */
+export const uploadMedicalRecordFile = async (fileBuffer: Buffer, fileName: string, contentType: string): Promise<string> => {
+    if (process.env.NODE_ENV === 'test') return `mock-url-${fileName}`;
+    try {
+        const { error } = await getSupabase().storage
+            .from('medical-records')
+            .upload(fileName, fileBuffer, { contentType, upsert: true });
+
+        if (error) {
+            throw new Error(`Supabase upload failed: ${error.message}`);
+        }
+        return fileName;
+    } catch (error) {
+        console.error('Error uploading medical record:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generates a signed URL for a medical record.
+ */
+export const getSignedMedicalRecordUrl = async (fileName: string): Promise<string | null> => {
+    if (process.env.NODE_ENV === 'test') return `https://mock-supabase.com/${fileName}`;
+    try {
+        if (!fileName) return null;
+        if (fileName.startsWith('http')) return fileName;
+
+        const { data, error } = await getSupabase().storage
+            .from('medical-records')
+            .createSignedUrl(fileName, 3600);
+
+        if (error) {
+            console.error('Supabase signed URL error:', error);
+            return null;
+        }
+
+        return data?.signedUrl || null;
+    } catch (error) {
+        console.error('Failed to generate signed url for medical record:', error);
         return null;
     }
 };

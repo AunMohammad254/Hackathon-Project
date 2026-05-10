@@ -33,5 +33,5 @@ const patientSchema = new mongoose.Schema({
 // PERF-04: Build index for user lookups
 patientSchema.index({ createdBy: 1 });
 
-const Patient = mongoose.models.Patient || mongoose.model('Patient', patientSchema);
+const Patient = mongoose.models.Patient || mongoose.model<IPatientDocument>('Patient', patientSchema);
 export default Patient;

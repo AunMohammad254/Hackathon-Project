@@ -92,8 +92,9 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
         try {
             // Using the existing active waitlist or appointments to get recent patients
             const res = await api.get("/appointments");
+            const data = res.data.success ? res.data.appointments : res.data;
             const uniquePatients: Record<string, Patient> = {};
-            res.data.forEach((apt: { patientId?: Patient & { _id: string } }) => {
+            data.forEach((apt: { patientId?: Patient & { _id: string } }) => {
                 if (apt.patientId && !uniquePatients[apt.patientId._id]) {
                     uniquePatients[apt.patientId._id] = apt.patientId;
                 }
@@ -145,7 +146,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
     // eslint-disable-next-line react-hooks/incompatible-library
     const selectedPatientId = form.watch("patientId");
     useEffect(() => {
-        const p = patients.find(p => p._id === selectedPatientId);
+        const p = patients.find((p: Patient) => p._id === selectedPatientId);
         if (p) {
             if (p.age) form.setValue("age", p.age);
             if (p.gender) form.setValue("gender", p.gender as "Male" | "Female" | "Other");
@@ -183,7 +184,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {patients.map((p) => (
+                                                    {patients.map((p: Patient) => (
                                                         <SelectItem key={p._id} value={p._id}>
                                                             {p.name}
                                                         </SelectItem>
@@ -329,7 +330,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
                                             Possible Conditions
                                         </h4>
                                         <ul className="space-y-2">
-                                            {result.possibleConditions.map((condition, idx) => (
+                                            {result.possibleConditions.map((condition: string, idx: number) => (
                                                 <li key={idx} className="flex gap-2 text-sm text-slate-700">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
                                                     {condition}
@@ -347,7 +348,7 @@ export function SmartDiagnosisModal({ open, onOpenChange }: SmartDiagnosisModalP
                                             Suggested Tests
                                         </h4>
                                         <div className="flex flex-wrap gap-2">
-                                            {result.suggestedTests.map((test, idx) => (
+                                            {result.suggestedTests.map((test: string, idx: number) => (
                                                 <span key={idx} className="bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-1 rounded-md text-xs font-medium">
                                                     {test}
                                                 </span>

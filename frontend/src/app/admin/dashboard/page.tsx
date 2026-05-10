@@ -15,8 +15,9 @@ interface AIAnalytics {
     topConditions: string[];
     patientLoadForecast: string;
     doctorPerformanceTrends: string;
-    trendInsight: string;
-    recommendation: string;
+    revenueForecast: string;
+    resourceAdvice: string;
+    strategicGrowth: string;
 }
 
 interface DashboardStats {

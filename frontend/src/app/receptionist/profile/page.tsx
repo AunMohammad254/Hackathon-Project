@@ -102,7 +102,7 @@ export default function ReceptionistProfilePage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Full Name</label>
-                                <Input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} className="h-11 bg-slate-50/50" />
+                                <Input value={profile.name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({ ...profile, name: e.target.value })} className="h-11 bg-slate-50/50" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Email Address</label>
@@ -110,15 +110,15 @@ export default function ReceptionistProfilePage() {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Contact Number</label>
-                                <Input value={profile.contact} onChange={(e) => setProfile({ ...profile, contact: e.target.value })} className="h-11 bg-slate-50/50" />
+                                <Input value={profile.contact} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({ ...profile, contact: e.target.value })} className="h-11 bg-slate-50/50" />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Department</label>
-                                <Input value={profile.department} onChange={(e) => setProfile({ ...profile, department: e.target.value })} className="h-11 bg-slate-50/50" />
+                                <Input value={profile.department} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({ ...profile, department: e.target.value })} className="h-11 bg-slate-50/50" />
                             </div>
                             <div className="md:col-span-2 space-y-2">
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Office Location</label>
-                                <Input value={profile.location} onChange={(e) => setProfile({ ...profile, location: e.target.value })} className="h-11 bg-slate-50/50" />
+                                <Input value={profile.location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProfile({ ...profile, location: e.target.value })} className="h-11 bg-slate-50/50" />
                             </div>
                         </div>
 
