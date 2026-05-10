@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import Prescription from '../models/Prescription';
 import Patient from '../models/Patient';
+import Appointment from '../models/Appointment';
 import { generatePrescriptionPDF } from '../services/pdf.service';
 import { uploadPrescriptionPDF, getSignedPrescriptionUrl } from '../services/supabase.service';
 import crypto from 'crypto';
@@ -100,10 +101,10 @@ export const getPatientPrescriptions = async (req: AuthRequest, res: Response) =
                 return res.status(403).json({ success: false, message: 'Access denied: you can only view your own prescriptions' });
             }
         } else if (req.user!.role === 'Doctor') {
-            // Doctors can only see prescriptions they authored for this patient
-            const hasPrescriptions = await Prescription.exists({ patientId, doctorId: req.user!._id });
-            if (!hasPrescriptions) {
-                return res.status(403).json({ success: false, message: 'Access denied: no prescriptions authored by you for this patient' });
+            // Doctors can view all prescriptions for patients assigned to them via appointment
+            const hasAccess = await Appointment.exists({ patientId, doctorId: req.user!._id });
+            if (!hasAccess) {
+                return res.status(403).json({ success: false, message: 'Access denied: patient not assigned to you' });
             }
         }
         // Admin has full access

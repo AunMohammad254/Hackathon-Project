@@ -284,3 +284,29 @@ export const deleteRecord = async (req: AuthRequest, res: Response) => {
     }
 };
 
+// @desc    Get patient medical records (for Doctor/Admin)
+// @route   GET /api/patients/:id/records
+// @access  Private (Admin, Doctor)
+export const getPatientRecordsForDoctor = async (req: AuthRequest, res: Response) => {
+    try {
+        const patientId = req.params.id;
+        
+        const records = await MedicalRecord.find({ patientId })
+            .sort({ createdAt: -1 })
+            .lean();
+            
+        const recordsWithUrls = await Promise.all(records.map(async (record) => {
+            const signedUrl = await getSignedMedicalRecordUrl(record.fileKey);
+            return {
+                ...record,
+                fileUrl: signedUrl
+            };
+        }));
+            
+        res.json({ success: true, data: recordsWithUrls });
+    } catch (error: unknown) {
+        console.error('[Get Patient Records For Doctor Error]', (error as Error).message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+

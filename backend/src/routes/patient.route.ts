@@ -8,7 +8,8 @@ import {
     createPatientProfile,
     getMyDiagnoses,
     getMyRecords,
-    deleteRecord
+    deleteRecord,
+    getPatientRecordsForDoctor
 } from '../controllers/patient.controller';
 import { protect } from '../middleware/authMiddleware';
 import { authorizeRoles } from '../middleware/roleMiddleware';
@@ -30,6 +31,9 @@ router.route('/my-records')
 
 router.route('/records/:id')
     .delete(protect, authorizeRoles('Patient'), deleteRecord);
+
+router.route('/:id/records')
+    .get(protect, authorizeRoles('Admin', 'Doctor'), getPatientRecordsForDoctor);
 
 router.route('/:id')
     .get(protect, authorizeRoles('Admin', 'Receptionist', 'Doctor', 'Patient'), getPatientById)
