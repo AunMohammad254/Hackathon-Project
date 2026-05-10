@@ -8,14 +8,8 @@ const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const auth_controller_1 = require("../controllers/auth.controller");
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = express_1.default.Router();
-const MongoStore = require('rate-limit-mongo');
 // Strict rate limiting for registration to prevent spam
 const registerLimiter = (0, express_rate_limit_1.default)({
-    store: process.env.NODE_ENV === 'test' ? undefined : new MongoStore({
-        uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
-        expireTimeMs: 60 * 60 * 1000,
-        errorHandler: console.error.bind(console, 'rate-limit-mongo')
-    }),
     windowMs: 60 * 60 * 1000, // 1 hour
     max: 5, // 5 registrations per hour per IP
     message: { success: false, message: 'Too many registrations from this IP, please try again after an hour.' },

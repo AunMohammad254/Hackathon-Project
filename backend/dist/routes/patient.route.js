@@ -15,6 +15,12 @@ router.route('/')
     .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.getPatients);
 router.route('/my-diagnoses')
     .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.getMyDiagnoses);
+router.route('/my-records')
+    .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.getMyRecords);
+router.route('/records/:id')
+    .delete(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Patient'), patient_controller_1.deleteRecord);
+router.route('/:id/records')
+    .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Doctor'), patient_controller_1.getPatientRecordsForDoctor);
 router.route('/:id')
     .get(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor', 'Patient'), patient_controller_1.getPatientById)
     .put(authMiddleware_1.protect, (0, roleMiddleware_1.authorizeRoles)('Admin', 'Receptionist', 'Doctor'), patient_controller_1.updatePatient)

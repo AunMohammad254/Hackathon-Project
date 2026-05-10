@@ -7,6 +7,7 @@ exports.getMyPrescriptions = exports.getPatientPrescriptions = exports.createPre
 const zod_1 = require("zod");
 const Prescription_1 = __importDefault(require("../models/Prescription"));
 const Patient_1 = __importDefault(require("../models/Patient"));
+const Appointment_1 = __importDefault(require("../models/Appointment"));
 const pdf_service_1 = require("../services/pdf.service");
 const supabase_service_1 = require("../services/supabase.service");
 const crypto_1 = __importDefault(require("crypto"));
@@ -93,10 +94,10 @@ const getPatientPrescriptions = async (req, res) => {
             }
         }
         else if (req.user.role === 'Doctor') {
-            // Doctors can only see prescriptions they authored for this patient
-            const hasPrescriptions = await Prescription_1.default.exists({ patientId, doctorId: req.user._id });
-            if (!hasPrescriptions) {
-                return res.status(403).json({ success: false, message: 'Access denied: no prescriptions authored by you for this patient' });
+            // Doctors can view all prescriptions for patients assigned to them via appointment
+            const hasAccess = await Appointment_1.default.exists({ patientId, doctorId: req.user._id });
+            if (!hasAccess) {
+                return res.status(403).json({ success: false, message: 'Access denied: patient not assigned to you' });
             }
         }
         // Admin has full access

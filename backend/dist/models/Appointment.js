@@ -27,6 +27,18 @@ const appointmentSchema = new mongoose_1.default.Schema({
     reason: {
         type: String,
     },
+    symptoms: {
+        type: String,
+    },
+    aiPreDiagnosis: {
+        possibleConditions: [String],
+        riskLevel: {
+            type: String,
+            enum: ['Low', 'Medium', 'High', 'Critical'],
+        },
+        urgency: String,
+        advice: String,
+    },
     price: {
         type: Number,
         default: 500,

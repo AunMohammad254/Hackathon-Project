@@ -11,16 +11,23 @@ const User_1 = __importDefault(require("../models/User"));
 const socket_service_1 = require("../services/socket.service");
 const invoice_service_1 = require("../services/invoice.service");
 const supabase_service_1 = require("../services/supabase.service");
+const generative_ai_1 = require("@google/generative-ai");
+const genAI = new generative_ai_1.GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const VALID_STATUSES = ['pending', 'confirmed', 'completed', 'cancelled'];
 const createAppointmentSchema = zod_1.z.object({
     doctorId: zod_1.z.string().min(1, 'Doctor ID is required'),
     date: zod_1.z.string().min(1, 'Date is required'),
     patientId: zod_1.z.string().optional(), // Receptionist/Admin can specify; Patients auto-resolve
     reason: zod_1.z.string().optional(),
+    symptoms: zod_1.z.string().optional(),
 });
 const updateStatusSchema = zod_1.z.object({
     status: zod_1.z.enum(VALID_STATUSES),
 });
+// Helper: Clean JSON response from Gemini
+const cleanJsonResponse = (text) => {
+    return text.replace(/```json/gi, '').replace(/```/g, '').trim();
+};
 // @desc    Create a new appointment
 // @route   POST /api/appointments
 // @access  Private (Admin, Receptionist, Patient, Doctor)
@@ -32,33 +39,59 @@ const createAppointment = async (req, res) => {
             errors: parsed.error.flatten().fieldErrors,
         });
     }
-    const { doctorId, date, patientId: bodyPatientId, reason } = parsed.data;
+    const { doctorId, date, patientId: bodyPatientId, reason, symptoms } = parsed.data;
     try {
         let patientId;
+        let patientData = null;
         if (req.user.role === 'Patient') {
             // BUG-02 FIX: For patients, look up their Patient record via createdBy link
-            let patient = await Patient_1.default.findOne({ createdBy: req.user._id }).lean();
-            if (!patient) {
+            patientData = await Patient_1.default.findOne({ createdBy: req.user._id });
+            if (!patientData) {
                 // If the patient profile does not exist yet (e.g. registered before auto-create was added), auto-create one
-                const newPatient = await Patient_1.default.create({
+                patientData = await Patient_1.default.create({
                     name: req.user.name,
                     age: 0,
                     gender: 'Other',
                     contact: req.user.email,
                     createdBy: req.user._id
                 });
-                patientId = newPatient._id.toString();
             }
-            else {
-                patientId = patient._id.toString();
-            }
+            patientId = patientData._id.toString();
         }
         else if (bodyPatientId) {
             // Admin/Receptionist/Doctor can specify patientId explicitly
+            patientData = await Patient_1.default.findById(bodyPatientId);
             patientId = bodyPatientId;
         }
         else {
             return res.status(400).json({ success: false, message: 'patientId is required for non-patient users' });
+        }
+        let aiPreDiagnosis = undefined;
+        if (symptoms) {
+            try {
+                const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+                const prompt = `
+                    Analyze the following patient symptoms and provide a smart pre-diagnosis for the doctor.
+                    Patient: ${patientData?.name}, Age: ${patientData?.age}, Gender: ${patientData?.gender}
+                    Symptoms: ${symptoms}
+                    
+                    Provide the analysis strictly as a JSON object with:
+                    {
+                        "possibleConditions": ["string"],
+                        "riskLevel": "Low" | "Medium" | "High" | "Critical",
+                        "urgency": "string",
+                        "advice": "string"
+                    }
+                    Output ONLY the JSON.
+                `;
+                const result = await model.generateContent(prompt);
+                const responseText = cleanJsonResponse(result.response.text());
+                aiPreDiagnosis = JSON.parse(responseText);
+            }
+            catch (aiErr) {
+                console.error('[Gemini AI Pre-Diagnosis Error]', aiErr);
+                // Continue without AI if it fails
+            }
         }
         const appointment = new Appointment_1.default({
             patientId,
@@ -66,12 +99,14 @@ const createAppointment = async (req, res) => {
             date,
             status: 'pending',
             reason,
+            symptoms,
+            aiPreDiagnosis
         });
         const createdAppointment = await appointment.save();
         // Notify Doctor
         (0, socket_service_1.emitToUser)(doctorId, 'appointment-created', {
             appointment: createdAppointment,
-            message: `New appointment scheduled for ${date}`
+            message: `New appointment scheduled for ${date}${aiPreDiagnosis ? ' (with AI Pre-Diagnosis)' : ''}`
         });
         // Notify Admins/Receptionists
         (0, socket_service_1.emitToRole)('Admin', 'appointment-created', { appointment: createdAppointment });

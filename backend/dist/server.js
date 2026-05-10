@@ -51,14 +51,8 @@ app.use((0, cors_1.default)({
     credentials: true,
 }));
 app.use(express_1.default.json({ limit: '10kb' }));
-const MongoStore = require('rate-limit-mongo');
 // Rate limiting on auth routes (prevent brute force)
 const authLimiter = (0, express_rate_limit_1.default)({
-    store: process.env.NODE_ENV === 'test' ? undefined : new MongoStore({
-        uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/clinic-saas',
-        expireTimeMs: 15 * 60 * 1000,
-        errorHandler: console.error.bind(console, 'rate-limit-mongo')
-    }),
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 20, // 20 requests per window per IP
     message: { message: 'Too many requests, please try again later.' },
@@ -93,8 +87,12 @@ app.use((err, _req, res, _next) => {
         }
         return res.status(400).json({ success: false, message: err.message });
     }
-    console.error('[Unhandled Error]', err.message || err);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    console.error('[Unhandled Error]', err.stack || err.message || err);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || 'Internal server error',
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    });
 });
 // Database connection & server start
 const PORT = process.env.PORT || 5000;

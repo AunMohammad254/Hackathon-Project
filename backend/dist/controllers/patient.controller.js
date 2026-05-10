@@ -3,10 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMyDiagnoses = exports.deletePatient = exports.updatePatient = exports.getPatientById = exports.getPatients = exports.createPatientProfile = exports.createPatient = void 0;
+exports.getPatientRecordsForDoctor = exports.deleteRecord = exports.getMyRecords = exports.getMyDiagnoses = exports.deletePatient = exports.updatePatient = exports.getPatientById = exports.getPatients = exports.createPatientProfile = exports.createPatient = void 0;
 const zod_1 = require("zod");
 const Patient_1 = __importDefault(require("../models/Patient"));
 const DiagnosisLog_1 = __importDefault(require("../models/DiagnosisLog"));
+const MedicalRecord_1 = __importDefault(require("../models/MedicalRecord"));
+const supabase_service_1 = require("../services/supabase.service");
 const createPatientSchema = zod_1.z.object({
     name: zod_1.z.string().min(2, 'Name must be at least 2 characters').max(100),
     age: zod_1.z.coerce.number().min(0, 'Age must be 0 or greater').max(150),
@@ -213,3 +215,79 @@ const getMyDiagnoses = async (req, res) => {
     }
 };
 exports.getMyDiagnoses = getMyDiagnoses;
+// @desc    Get my medical records
+// @route   GET /api/patients/my-records
+// @access  Private (Patient)
+const getMyRecords = async (req, res) => {
+    try {
+        const patient = await Patient_1.default.findOne({ createdBy: req.user._id });
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient profile not found' });
+        }
+        const records = await MedicalRecord_1.default.find({ patientId: patient._id })
+            .sort({ createdAt: -1 })
+            .lean();
+        const recordsWithUrls = await Promise.all(records.map(async (record) => {
+            const signedUrl = await (0, supabase_service_1.getSignedMedicalRecordUrl)(record.fileKey);
+            return {
+                ...record,
+                fileUrl: signedUrl
+            };
+        }));
+        res.json({ success: true, data: recordsWithUrls });
+    }
+    catch (error) {
+        console.error('[Get Patient Records Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.getMyRecords = getMyRecords;
+// @desc    Delete a medical record
+// @route   DELETE /api/patients/records/:id
+// @access  Private (Patient)
+const deleteRecord = async (req, res) => {
+    try {
+        const recordId = req.params.id;
+        const patient = await Patient_1.default.findOne({ createdBy: req.user._id });
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient profile not found' });
+        }
+        const record = await MedicalRecord_1.default.findOne({ _id: recordId, patientId: patient._id });
+        if (!record) {
+            return res.status(404).json({ success: false, message: 'Record not found or access denied' });
+        }
+        await record.deleteOne();
+        // Note: we could also delete the file from Supabase storage here using supabase.storage.from('medical-records').remove([record.fileKey])
+        // For simplicity and to avoid destructive ops during hackathon, we only delete DB entry.
+        res.json({ success: true, message: 'Medical record deleted' });
+    }
+    catch (error) {
+        console.error('[Delete Patient Record Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.deleteRecord = deleteRecord;
+// @desc    Get patient medical records (for Doctor/Admin)
+// @route   GET /api/patients/:id/records
+// @access  Private (Admin, Doctor)
+const getPatientRecordsForDoctor = async (req, res) => {
+    try {
+        const patientId = req.params.id;
+        const records = await MedicalRecord_1.default.find({ patientId })
+            .sort({ createdAt: -1 })
+            .lean();
+        const recordsWithUrls = await Promise.all(records.map(async (record) => {
+            const signedUrl = await (0, supabase_service_1.getSignedMedicalRecordUrl)(record.fileKey);
+            return {
+                ...record,
+                fileUrl: signedUrl
+            };
+        }));
+        res.json({ success: true, data: recordsWithUrls });
+    }
+    catch (error) {
+        console.error('[Get Patient Records For Doctor Error]', error.message);
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+};
+exports.getPatientRecordsForDoctor = getPatientRecordsForDoctor;
